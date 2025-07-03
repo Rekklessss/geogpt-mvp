@@ -1,5 +1,0 @@
-uvicorn
-Fastapi
-pydantic
-FlagEmbedding
-sentencepiece
