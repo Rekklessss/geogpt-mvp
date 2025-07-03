@@ -1,0 +1,81 @@
+services:
+  geogpt-rag:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: geogpt-rag-api
+    ports:
+      - "8000:8000"  # FastAPI application port
+    env_file: 
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - CUDA_VISIBLE_DEVICES=0
+      # 🚀 Optimized for g5.xlarge (24 GB VRAM)
+      - EMBEDDING_DEVICE=cuda
+      - RERANKING_DEVICE=cuda
+      - TEXT_SPLITTER_DEVICE=cuda
+      - LOG_LEVEL=INFO
+      # 🎯 Enhanced batch sizes for A10G GPU
+      - EMBEDDING_BATCH_SIZE=64
+      - RERANKING_BATCH_SIZE=64
+      - VEC_RECALL_NUM=128
+      # 🔧 Performance optimizations
+      - EMBEDDING_FP16=true
+      - RERANKING_FP16=true
+      - PRELOAD_MODELS=true
+      # 📁 Set cache directories that the nobody user can access
+      - TRANSFORMERS_CACHE=/app/.cache/transformers
+      - HF_HOME=/app/.cache/huggingface
+      - TORCH_HOME=/app/.cache/torch
+      # 🛡️ Error prevention and memory management
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:2048
+      - TOKENIZERS_PARALLELISM=false
+      - OMP_NUM_THREADS=4
+      - CUDA_LAUNCH_BLOCKING=0
+      # 🚨 Graceful degradation settings
+      - FALLBACK_TO_CPU_ON_OOM=false
+      - TORCH_CUDNN_V8_API_ENABLED=1
+    volumes:
+      - ./data:/app/data                    # Document uploads and chunks
+      - ./logs:/app/logs                    # Application logs
+      - model_cache:/app/.cache             # Model cache persistence (fixed path)
+      - huggingface_cache:/app/.cache/huggingface  # HuggingFace model cache (fixed path)
+    deploy:
+      resources:
+        # 🎯 Optimized for g5.xlarge (16 GB RAM + 24 GB VRAM)
+        limits:
+          memory: 14G          # Leave 2G for system
+          cpus: '3.5'          # Use most of 4 vCPUs
+        reservations:
+          memory: 10G          # Reserve enough for models
+          cpus: '2.0'          # Guarantee minimum CPU
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+              device_ids: ['0']  # Explicit GPU assignment
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_DEFAULT_REGION:-ap-south-1}
+        awslogs-group: GeoGPT-RAG-Logs
+        awslogs-stream: rag-api
+        awslogs-create-group: "true"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 45s
+      timeout: 15s
+      retries: 5
+      start_period: 180s       # Extended for model preloading
+
+volumes:
+  model_cache:
+    driver: local
+  huggingface_cache:
+    driver: local
+
+networks:
+  default:
+    name: geogpt-rag-network

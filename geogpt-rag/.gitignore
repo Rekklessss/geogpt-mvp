@@ -1,0 +1,162 @@
+# =====================================================================================
+# GeoGPT-RAG .gitignore
+# =====================================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Environment and Secrets
+# ─────────────────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+*.key
+secrets.txt
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Data and Uploads
+# ─────────────────────────────────────────────────────────────────────────────────
+data/
+split_chunks/
+logs/
+*.log
+*.log.*
+
+# Uploaded documents
+uploads/
+documents/
+*.pdf
+*.txt
+*.md
+!README.md
+!ENV_TEMPLATE.md
+!G5-DEPLOYMENT.md
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Model Cache and Downloads
+# ─────────────────────────────────────────────────────────────────────────────────
+models/
+.cache/
+*.model
+*.bin
+*.safetensors
+pytorch_model.bin
+tf_model.h5
+
+# Hugging Face cache
+transformers_cache/
+.huggingface/
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Docker
+# ─────────────────────────────────────────────────────────────────────────────────
+.dockerignore
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Development Tools
+# ─────────────────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Operating System
+# ─────────────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Temporary Files
+# ─────────────────────────────────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Database Files
+# ─────────────────────────────────────────────────────────────────────────────────
+*.db
+*.sqlite3
+*.sqlite
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Cloud and Infrastructure
+# ─────────────────────────────────────────────────────────────────────────────────
+terraform.tfstate*
+.terraform/
+*.tfvars
+
+# AWS
+.aws/
+aws-credentials
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# KEEP THESE FILES (Explicitly include important files)
+# ─────────────────────────────────────────────────────────────────────────────────
+!app/
+!tests/
+!*.py
+!requirements.txt
+!Dockerfile
+!docker-compose.yml
+!start.sh
+!pytest.ini
+!README.md
+!ENV_TEMPLATE.md
+!G5-DEPLOYMENT.md 

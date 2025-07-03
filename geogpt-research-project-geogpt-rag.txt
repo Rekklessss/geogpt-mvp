@@ -1,0 +1,1201 @@
+OLD OPEN SOURCE PROJECT (GEOGPT-RAG) FOR REFERENCE ONLY
+Directory structure:
+└── geogpt-research-project-geogpt-rag/
+    ├── README.md
+    ├── Apache_LICENSE
+    ├── CODE_OF_CONDUCT.md
+    ├── MIT_LICENSE
+    ├── NOTICE.md
+    ├── SECURITY.md
+    ├── embedding/
+    │   ├── embedding_api.py
+    │   └── requirements.txt
+    ├── rag_server/
+    │   ├── config.py
+    │   ├── embeddings.py
+    │   ├── geo_kb.py
+    │   ├── requirements.txt
+    │   ├── reranking.py
+    │   └── text_split_md.py
+    └── reranking/
+        ├── requirements.txt
+        └── reranker_fast_api.py
+
+================================================
+FILE: README.md
+================================================
+## 1. Introduction
+
+GeoGPT-RAG is a Retrieval-Augmented Generation system designed to enhance the performance of [GeoGPT](https://github.com/GeoGPT-Research-Project/GeoGPT), an open large language model system designed for geoscience research. By retrieving information from a domain-specific corpus, GeoGPT-RAG ensures that generated responses are grounded in authoritative geoscientific literature and aligned with the context of user queries.
+
+In addition to leveraging curated academic sources, GeoGPT-RAG allows users to upload custom datasets and build personalized knowledge bases, enabling localized retrieval from user-defined content. This is an essential feature for domain experts working with specialized or proprietary data.
+
+To further improve the retrieval precision and contextual relevance, the GeoGPT-RAG system integrates two key components, namely [GeoEmbedding](https://huggingface.co/GeoGPT-Research-Project/GeoEmbedding) model and [GeoReranker](https://huggingface.co/GeoGPT-Research-Project/GeoReranker) model.
+
+The [GeoEmbedding](https://huggingface.co/GeoGPT-Research-Project/GeoEmbedding) model is a geoscience-specific text embedding model built upon a high-performance large language model and fine-tuned on both general-purpose and in-domain geoscientific datasets. It produces accurate, context-aware vector representations of geoscientific texts, forming the backbone of vector-based retrieval in the RAG pipeline.
+
+The [GeoReranker](https://huggingface.co/GeoGPT-Research-Project/GeoReranker) model complements this process by re-evaluating and ranking retrieved results. Unlike the GeoEmbedding model, which focuses on vector similarity, the GeoReranker model takes a query and a candidate passage as input and directly estimates their semantic relevance. It outputs a relevance score——typically normalized to a [0, 1] range via a sigmoid function——enabling more precise document ranking based on contextual alignment.
+
+Together, the GeoGPT-RAG system and its two core models are open-sourced, empowering the GeoGPT project to better support the global geoscience research community.
+
+## 2. System Information
+
+The RAG pipeline supports both batch processing of PDF documents and online retrieval workflows. As illustrated in the following Figure, the architecture is designed for scalability and efficiency across different usage scenarios.
+
+
+To enhance the performance of the RAG process, we focus on text segmentation, embedding model fine-tuning, and reranker model fine-tuning.
+
+
+## 3. Model Downloads
+
+We provide model downloads both on [HuggingFace](https://huggingface.co/GeoGPT-Research-Project) and [Model Scope](https://modelscope.cn/profile/GeoGPT) . 
+
+<div align="center">
+
+| **Model** | **Params** |**Supported Language**| **Base Model** | **Hugging Face** |**ModelScope** |
+| :-------: | :--------: | :------------------: |:-------------: | :--------------: | :-----------: | 
+| GeoEmbedding | 7B | English | [Mistral-7B-Instruct-v0.1](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1) | [🤗 Hugging Face](https://huggingface.co/GeoGPT-Research-Project/GeoEmbedding) | [🤖 ModelScope](https://modelscope.cn/models/GeoGPT/GeoEmbedding) |
+| GeoReranker | 568M | Multilingual | [BGE-M3](https://huggingface.co/BAAI/bge-m3) | [🤗 Hugging Face](https://huggingface.co/GeoGPT-Research-Project/GeoReranker) | [🤖 ModelScope](https://modelscope.cn/models/GeoGPT/GeoReranker) | 
+</div>
+
+## 4. Quickstart
+
+### Prerequisite
+
+To use the RAG system, please prepare the [GeoEmbedding](https://huggingface.co/GeoGPT-Research-Project/GeoEmbedding) model & [GeoReranker](https://huggingface.co/GeoGPT-Research-Project/GeoReranker) model in advance.
+
+- Embedding service
+```shell
+cd Embedding
+pip install -r requirements.txt
+python embedding_api.py --model_path %local Embedding model path% --port %any port%
+```
+- Reranker service
+```shell
+cd reranking
+pip install -r requirements.txt
+python reranker_fast_api.py --model_path %local Reranker model path% --port %any port%
+```
+
+### GeoEmbedding model
+To load the GeoEmbedding model with Transformer, use the following snippet:
+```python
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+task_description = 'Given a web search query, retrieve relevant passages that answer the query'
+def get_detailed_instruct(task_description: str, query: str) -> str:
+    return f'Instruct: {task_description}\nQuery: {query}'
+
+model_name_or_path = 'GeoGPT/GeoEmbedding'
+
+model = SentenceTransformer(model_name_or_path, device="cuda", trust_remote_code=True)
+
+queries = [
+    "What is the main cause of earthquakes?",
+    "How do sedimentary rocks form?",
+]
+
+passages = [
+    "Earthquakes occur due to the sudden release of energy in the Earth's crust, often caused by tectonic plate movements along fault lines.",
+    "Sedimentary rocks form through the deposition and compaction of mineral and organic particles over time, typically in water bodies.",
+]
+
+queries = [get_detailed_instruct(task_description, query) for query in queries]
+
+q_vecs = model.encode(queries, normalize_embeddings=True)
+p_vecs = model.encode(passages, normalize_embeddings=True)
+
+print(np.dot(q_vecs, p_vecs.T)) 
+#[[0.6369  0.2092 ]
+# [0.2499  0.8411 ]]
+```
+
+### GeoReranker model
+To load the GeoReranker model with Transformer, use the following snippet:
+
+```python
+from FlagEmbedding import FlagReranker
+model_name_or_path = 'GeoGPT-Research-Project/Bge-M3-GeoReranker'
+# Setting use_fp16 to True speeds up computation with a slight performance degradation
+reranker = FlagReranker(model_name_or_path, use_fp16=True) 
+
+score = reranker.compute_score(['query', 'passage'])
+print(score)
+
+# You can map the scores into 0-1 by set "normalize=True", which will apply sigmoid function to the score
+score = reranker.compute_score(['query', 'passage'], normalize=True)
+print(score)
+
+scores = reranker.compute_score([['what is panda?', 'hi'], ['what is panda?', 'The giant panda (Ailuropoda melanoleuca), sometimes called a panda bear or simply panda, is a bear species endemic to China.']])
+print(scores)
+# You can map the scores into 0-1 by set "normalize=True", which will apply sigmoid function to the score
+scores = reranker.compute_score([['what is panda?', 'hi'], ['what is panda?', 'The giant panda (Ailuropoda melanoleuca), sometimes called a panda bear or simply panda, is a bear species endemic to China.']], normalize=True)
+print(scores)
+```
+
+### RAG Server
+- Environment preparation
+```shell
+cd rag_server
+pip install -r requirements.txt
+```
+- RAG server initialization (make sure that `zilliz` config is ready in `config.py`)
+```python
+from rag_server.geo_kb import KBDocQA
+
+kb_server = KBDocQA()
+```
+- Upload `.mmd file`
+```python
+kb_server.add_file("xxx.mmd", max_size=512)
+```
+- Retrieval
+```python
+docs = kb_server.retrieval(query, k=top_k, expand_len=1000, score_threshold=0.0)
+```
+- RAG (LLM generation with retrieval)
+```python
+docs, ans = kb_server.query(query, k=top_k, expand_len=1000, score_threshold=0.0)
+```
+- Clear the collection (vector database)
+```python
+kb_server.drop_collection()
+```
+
+
+
+
+================================================
+FILE: embedding/embedding_api.py
+================================================
+from sentence_transformers import SentenceTransformer, models
+import json
+from pydantic import BaseModel
+import uvicorn as uvicorn
+from fastapi import FastAPI
+import argparse
+import torch
+
+parser = argparse.ArgumentParser(description="deploy")
+parser.add_argument('--port', default=8810, type=int)
+parser.add_argument('--model_path', default="weights/GeoEmbedding0210", type=str)
+parser.add_argument('--fp16', action='store_true')
+args = parser.parse_args()
+
+
+# Each query must come with a one-sentence instruction that describes the task
+task = 'Given a web search query, retrieve relevant passages that answer the query'
+app = FastAPI()
+model = SentenceTransformer(args.model_path, 
+                            device="cuda", 
+                            trust_remote_code=True, 
+                            model_kwargs=({"torch_dtype": torch.float16} if args.fp16 else None))
+
+
+def get_detailed_instruct(task_description: str, query: str) -> str:
+    return f'Instruct: {task_description}\nQuery: {query}'
+
+
+class Queries(BaseModel):
+    queries: list = []
+    instruction: str = task
+
+
+class Passages(BaseModel):
+    passages: list = []
+    instruction: str = ""
+
+
+@app.post('/passage')
+def passage(data: Passages):
+    inputs = data.passages
+    instruction = data.instruction
+    if instruction:
+        inputs = [get_detailed_instruct(instruction, x) for x in inputs]
+    vecs = model.encode(inputs, convert_to_tensor=False, normalize_embeddings=True, batch_size=32).tolist()
+    return {"q_embeddings": json.dumps(vecs)}
+
+
+@app.post('/query')
+def query(data: Queries):
+    inputs = data.queries
+    instruction = data.instruction
+    if instruction:
+        inputs = [get_detailed_instruct(instruction, x) for x in inputs]
+    vecs = model.encode(inputs, convert_to_tensor=False, normalize_embeddings=True, batch_size=32).tolist()
+    return {"q_embeddings": json.dumps(vecs)}
+
+
+if __name__ == '__main__':
+    uvicorn.run(app=app, host="0.0.0.0", port=args.port)
+
+
+
+================================================
+FILE: embedding/requirements.txt
+================================================
+uvicorn
+pydantic
+Fastapi
+sentence_transformers
+transformers==4.48.0
+torch
+
+
+================================================
+FILE: rag_server/config.py
+================================================
+# embedding model config
+EMBEDDING_BATCH_SIZE = 32
+EMBEDDING_SERVER = ""
+
+RERANKING_BATCH_SIZE = 32
+RERANKING_SERVER = ""
+
+# split chunk config
+BERT_PATH = "bert-base-uncased"    # 'bert-base-uncased'
+MAX_SIZE = 512
+
+# milvus config
+CONNECTION_ARGS = {
+    'uri': '',
+    'token': '',
+}
+COLLECTION_NAME = "GeoDocs_test"
+
+# rerank config
+VEC_RECALL_NUM = 128
+TOP_K = 3
+META = True
+SCORE_THRESHOLD = 1.5
+
+# expand chunk config
+CHUNK_PATH_NAME = "split_chunks"
+EXPAND_RANGE = 1024
+EXPAND_TIME_OUT = 30
+
+# LLM config
+LLM_URL = ""
+LLM_KEY = ""
+
+# use deepseek r1 rag prompt template
+RAG_PROMPT = '''# The following contents are the search results related to the user's message:
+        {search_results}
+        In the search results I provide to you, each result is formatted as [document X begin]...[document X end], where X represents the numerical index of each article. Please cite the context at the end of the relevant sentence when appropriate. Use the citation format [citation:X] in the corresponding part of your answer. If a sentence is derived from multiple contexts, list all relevant citation numbers, such as [citation:3][citation:5]. Be sure not to cluster all citations at the end; instead, include them in the corresponding parts of the answer.
+        When responding, please keep the following points in mind:
+        - Today is {cur_date}.
+        - Not all content in the search results is closely related to the user's question. You need to evaluate and filter the search results based on the question.
+        - If all the search results are irrelevant, please answer the question by yourself  professionally and concisely.
+        - The search results may focus only on a few points, use the information it provided, but do not favor those points in your answer, reason and answer by yourself all-sidedly with full consideration. 
+        - For listing-type questions (e.g., listing all flight information), try to limit the answer to 10 key points and inform the user that they can refer to the search sources for complete information. Prioritize providing the most complete and relevant items in the list. Avoid mentioning content not provided in the search results unless necessary.
+        - For creative tasks (e.g., writing an essay), ensure that references are cited within the body of the text, such as [citation:3][citation:5], rather than only at the end of the text. You need to interpret and summarize the user's requirements, choose an appropriate format, fully utilize the search results, extract key information, and generate an answer that is insightful, creative, and professional. Extend the length of your response as much as possible, addressing each point in detail and from multiple perspectives, ensuring the content is rich and thorough.
+        - If the response is lengthy, structure it well and summarize it in paragraphs. If a point-by-point format is needed, try to limit it to 5 points and merge related content.
+        - For objective Q&A, if the answer is very brief, you may add one or two related sentences to enrich the content.
+        - Choose an appropriate and visually appealing format for your response based on the user's requirements and the content of the answer, ensuring strong readability.
+        - Your answer should synthesize information from multiple relevant documents and avoid repeatedly citing the same document.
+        - Unless the user requests otherwise, your response should be in the same language as the user's question.
+        # The user's message is:
+        {question}'''
+
+
+
+================================================
+FILE: rag_server/embeddings.py
+================================================
+import requests
+import json
+from pydantic import BaseModel
+from typing import List
+
+from langchain.embeddings.base import Embeddings
+
+from rag_server.config import EMBEDDING_SERVER, EMBEDDING_BATCH_SIZE
+
+
+class GeoEmbeddings(BaseModel, Embeddings):
+
+    @staticmethod
+    def batch_embedding(texts: List[str]):
+        t_input = {"passages": texts}
+
+        try:
+            completion = requests.post(EMBEDDING_SERVER + '/passage', json=t_input,
+                                       headers={'Content-Type': 'application/json',
+                                                'Connection': 'keep-alive'})
+            if str(completion.status_code) != '200':
+                raise ValueError(completion.content.decode('utf-8'))
+            response = json.loads(completion.content.decode('utf-8'))
+        except Exception as e:
+            raise ConnectionError(e)
+
+        if "q_embeddings" in response:
+            if isinstance(response["q_embeddings"], list):
+                embeddings = response["q_embeddings"]
+            else:
+                embeddings = eval(response["q_embeddings"])
+        else:
+            embeddings = []
+        return embeddings
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        texts = list(map(lambda x: x.replace("\n", " "), texts))
+        if len(texts) <= EMBEDDING_BATCH_SIZE:
+            return self.batch_embedding(texts)
+        embeddings = []
+        for i in range(int(len(texts) / EMBEDDING_BATCH_SIZE)  + int(len(texts) % EMBEDDING_BATCH_SIZE > 0)):
+            end_index = min((i + 1) * EMBEDDING_BATCH_SIZE, len(texts))
+            batch_embeddings = self.batch_embedding(texts[i * EMBEDDING_BATCH_SIZE: end_index])
+            embeddings.extend(batch_embeddings)
+        return embeddings
+
+    def embed_query(self, text: str) -> List[float]:
+        text = text.replace("\n", " ")
+        t_input = {"queries": [text]}
+        try:
+            completion = requests.post(EMBEDDING_SERVER + '/query', json=t_input,
+                                       headers={'Content-Type': 'application/json',
+                                                'Connection': 'keep-alive'})
+            if str(completion.status_code) != '200':
+                raise ValueError(completion.content.decode('utf-8'))
+            response = json.loads(completion.content.decode('utf-8'))
+        except Exception as e:
+            raise ConnectionError(e)
+
+        if "q_embeddings" in response:
+            if isinstance(response["q_embeddings"], list):
+                embeddings = response["q_embeddings"]
+            else:
+                embeddings = eval(response["q_embeddings"])
+        else:
+            raise ValueError("q_embeddings not in response")
+        return embeddings[0]
+
+
+
+================================================
+FILE: rag_server/geo_kb.py
+================================================
+import json
+import os
+import time
+import datetime
+import logging
+from multiprocessing import Process, Queue
+
+from langchain.vectorstores import Milvus
+import openai
+from pymilvus import Collection
+
+from rag_server.embeddings import GeoEmbeddings
+from rag_server.reranking import GeoReRanking
+from rag_server.text_split_md import split_text
+from rag_server.config import CONNECTION_ARGS, COLLECTION_NAME, CHUNK_PATH_NAME, MAX_SIZE, VEC_RECALL_NUM, \
+    EXPAND_TIME_OUT, META, EXPAND_RANGE, TOP_K, SCORE_THRESHOLD, LLM_URL, LLM_KEY, RAG_PROMPT
+
+
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+logging.basicConfig(filename='rag.log', level=logging.DEBUG, format=LOG_FORMAT)
+logging.FileHandler(filename='rag.log', encoding="utf-8")
+
+
+if not os.path.exists(CHUNK_PATH_NAME):
+    os.mkdir(CHUNK_PATH_NAME)
+
+
+def meta_gen(doc):
+    meta_list = []
+    for t in ['title', 'section', 'subsection']:
+        if len(doc.get(t, "")) > 0:
+            meta_list.append(doc[t])
+    return ",".join(meta_list)
+
+
+def filter_docs(docs, score_threshold):
+    n_docs = []
+    for doc in docs:
+        if "score" in doc and doc["score"] < score_threshold:
+            continue
+        n_docs.append(doc)
+    return n_docs
+
+
+def llm_generate(prompt):
+    client = openai.Client(base_url=LLM_URL,
+                           api_key=LLM_KEY)
+    models = client.models.list()
+    model = models.data[0].id
+    pt = [{"role": "user", "content": prompt}]
+    response = None
+    while response is None:
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=pt,
+                temperature=0.7,
+                presence_penalty=0.0,
+                frequency_penalty=0.0,
+                top_p=0.8,
+                max_tokens=32768,
+                timeout=3600
+            )
+        except ConnectionError as e:
+            logging.error(f"LLM generate error: {e}")
+            response = None
+            time.sleep(1)
+    return response.choices[0].message.content
+
+
+class KBDocQA:
+    def __init__(self, conn_args=CONNECTION_ARGS, col_name=COLLECTION_NAME):
+        self.embeddings = GeoEmbeddings()
+        self.reranking = GeoReRanking()
+        self.milvus_connection_args = conn_args
+        self.collection_name = col_name
+        self.vector_store = Milvus(
+            embedding_function=self.embeddings,
+            collection_name=self.collection_name,
+            connection_args=self.milvus_connection_args,
+            index_params = {
+                "metric_type": "COSINE",
+                "index_type": "HNSW",
+                "params": {"M": 8, "efConstruction": 64},
+            },
+            drop_old=False,
+            auto_id=True
+        )
+
+    def add_file(self, file_path, max_size=MAX_SIZE):
+        with open(file_path, mode='r', encoding='utf-8') as f:
+            text = f.read()
+        chunk_data = split_text(text, file_path, max_size=max_size)
+        fn = os.path.basename(file_path).split(".")[0]
+        chunk_path = os.path.join(CHUNK_PATH_NAME, fn + ".jsonl")
+        with open(chunk_path, mode='w', encoding='utf-8') as f:
+            for d in chunk_data:
+                d["chunk_path"] = chunk_path
+                f.write(json.dumps(d))
+                f.write("\n")
+        texts = []
+        metadata = []
+        for d in chunk_data:
+            texts.append(d["text"])
+            del (d["text"])
+            metadata.append(d)
+        _ = self.vector_store.add_texts(
+            texts,
+            metadatas=metadata,
+        )
+
+    def drop_collection(self):
+        if isinstance(self.vector_store.col, Collection):
+            self.vector_store.col.drop()
+            self.vector_store.col = None
+
+    def vector_search(self, query, k):
+        start = time.time()
+        chunks = self.vector_store.similarity_search_with_score(query, k=k,
+                                                                param={"metric_type": "COSINE",
+                                                                       "params": {"ef": 4096}})
+        results = []
+        for doc, score in chunks:
+            doc_info = doc.metadata
+            doc_info["emb_dist"] = score
+            doc_info["text"] = doc.page_content
+            results.append(doc_info)
+        milvus_search = time.time()
+        logging.info('milvus search time: {}'.format(milvus_search - start))
+        return results
+
+    def retrieval(self, query, k=TOP_K, expand_len=EXPAND_RANGE, score_threshold=SCORE_THRESHOLD):
+        plain_chunks = self.vector_search(query, k=VEC_RECALL_NUM)
+        if not plain_chunks:
+            return []
+        top_docs = self.rerank_docs(query, plain_chunks, k, score_threshold)
+        results = self.expand_docs(top_docs, expand_len)
+        return results
+
+    def rerank_docs(self, query, chunks, k, score_threshold):
+        start = time.time()
+        if len(chunks) == 0:
+            return []
+
+        if META:
+            qp_pairs = []
+            for para in chunks:
+                qp_pairs.append([query, meta_gen(para) + "\n" + para['text']])
+        else:
+            qp_pairs = [[query, para['text']] for para in chunks]
+        pred_scores = self.reranking.compute_scores(qp_pairs)
+        raw_top_docs = sorted(list(zip(chunks, pred_scores)), key=lambda x: x[1], reverse=True)
+
+        rerank_sort = time.time()
+        logging.info('rerank and sort time: {}'.format(rerank_sort - start))
+        return filter_docs(raw_top_docs, score_threshold)[:k]
+
+    def expand_docs(self, docs, expand_len):
+        start = time.time()
+        results = []
+        if expand_len > 0:
+            res = []
+            jobs = []
+            for doc, score in docs:
+                q = Queue()
+                p = Process(target=self.expand_doc, args=(doc, expand_len, score, q))
+                jobs.append(p)
+                res.append(q)
+                p.start()
+
+            for i, q in enumerate(res):
+                try:
+                    n_doc = q.get(timeout=EXPAND_TIME_OUT)
+                except TimeoutError as e:
+                    logging.error(f'expand time out: {e}')
+                    n_doc, score = docs[i]
+                    n_doc.metadata["score"] = score
+                    jobs[i].terminate()
+                    time.sleep(0.1)
+                    if not jobs[i].is_alive():
+                        logging.info("[MAIN]: WORKER is a goner")
+                        jobs[i].join(timeout=1.0)
+                        logging.info("[MAIN]: Joined WORKER successfully!")
+                q.close()
+                results.append(n_doc)
+        else:
+            for doc, score in docs:
+                doc.metadata["score"] = score
+                results.append(doc)
+
+        expand_para = time.time()
+        logging.info('expand para time: {}'.format(expand_para - start))
+        return results
+
+
+    def _expand(self, chunks, doc, expand_range, expand_len):
+        ind_list = list(chunks.keys())
+        doc_len = doc["length"]
+        id_set = {int(doc["index"])}
+        break_flag = False
+        for l in expand_range:
+            if l not in chunks:
+                continue
+            if min(ind_list) <= l <= max(ind_list):
+                if chunks[l]["length"] + doc_len > expand_len:
+                    break_flag = True
+                    break
+                else:
+                    doc_len += chunks[l]["length"]
+                    id_set.add(l)
+        return id_set, break_flag
+
+
+    def _find_raw_place(self, chunks, doc, expand_len):
+        ind_list = list(chunks.keys())
+        ind = int(doc["index"])
+        id_set = {int(doc["index"])}
+        for k in range(1, max(max(ind_list) - int(ind), int(ind) - min(ind_list))):
+            expand_range = [ind + k, ind - k]
+            id_set, b_flag = self._expand(chunks, doc, expand_range, expand_len)
+            if b_flag:
+                break
+        return sorted(list(id_set))
+
+    def expand_doc(self, doc, expand_len, score, q):
+        if not os.path.exists(doc["chunk_path"]):
+            logging.info("chunk file not exist")
+            doc["score"] = score
+            q.put(doc)
+            return
+        with open(doc["chunk_path"], mode='r', encoding='utf-8') as f:
+            rows = f.readlines()
+        chunks = {}
+        for r in rows:
+            row = json.loads(r)
+            if row["section"] == doc["section"]:
+                chunks[int(row["index"])] = row
+        if int(doc["index"]) not in list(chunks.keys()):
+            doc["score"] = score
+            q.put(doc)
+            return
+        text = ""
+        id_list = self._find_raw_place(chunks, doc, expand_len)
+        for i in id_list:
+            if i not in chunks:
+                break
+            text += chunks[i]["text"]
+        doc["text"] = text
+        doc["score"] = score
+        q.put(doc)
+
+    def query(self, query, k=TOP_K, expand_len=EXPAND_RANGE, score_threshold=SCORE_THRESHOLD):
+        docs = self.retrieval(query, k, expand_len, score_threshold)
+        if len(docs) == 0:
+            logging.info("retrieved 0 docs, LLM respond directly")
+            resp = llm_generate(query)
+        else:
+            today = datetime.date.today()
+            docs_text = "\n".join(
+                ["[document {} begin]{}[document {} end]".format(idx, doc["text"], idx) for idx, doc in
+                 enumerate(docs)])
+            pt = RAG_PROMPT.replace("{search_results}", docs_text).replace("{cur_date}", str(today)).replace(
+                "{question}", query)
+            resp = llm_generate(pt)
+        return docs, resp
+
+
+
+
+
+================================================
+FILE: rag_server/requirements.txt
+================================================
+langchain==0.3.25
+langchain-community==0.3.23
+pydantic~=2.7.4
+requests
+pymilvus==2.3.0
+nltk
+openai
+transformers
+torch
+
+
+================================================
+FILE: rag_server/reranking.py
+================================================
+import requests
+import json
+from pydantic import BaseModel
+from typing import List
+
+from rag_server.config import RERANKING_SERVER, RERANKING_BATCH_SIZE
+
+
+class GeoReRanking(BaseModel):
+
+    @staticmethod
+    def batch_reranking(qp_pairs: List[List[str]]) -> List[float]:
+        t_input = {"qp_pairs": qp_pairs}
+
+        try:
+            completion = requests.post(RERANKING_SERVER + '/query', json=t_input,
+                                       headers={'Content-Type': 'application/json',
+                                                'Connection': 'keep-alive'})
+            if str(completion.status_code) != '200':
+                raise ValueError(completion.content.decode('utf-8'))
+            response = json.loads(completion.content.decode('utf-8'))
+        except Exception as e:
+            raise ValueError(e)
+
+        if "pred_scores" in response:
+            pred_scores = eval(response["pred_scores"])
+        else:
+            raise ValueError("reranking return error: ", response)
+        if isinstance(pred_scores, float):
+            pred_scores = [pred_scores]
+        return pred_scores
+
+    def compute_scores(self, qp_pairs: List[List[str]]) -> List[float]:
+
+        if len(qp_pairs) <= RERANKING_BATCH_SIZE:
+            return self.batch_reranking(qp_pairs)
+        scores = []
+        for i in range(int(len(qp_pairs) / RERANKING_BATCH_SIZE) + int(len(qp_pairs) % RERANKING_BATCH_SIZE > 0)):
+            end_index = min((i + 1) * RERANKING_BATCH_SIZE, len(qp_pairs))
+            batch_reranking = self.batch_reranking(qp_pairs[i * RERANKING_BATCH_SIZE: end_index])
+            scores.extend(batch_reranking)
+        return scores
+
+
+
+
+================================================
+FILE: rag_server/text_split_md.py
+================================================
+import re
+from collections import defaultdict
+
+import math
+import torch
+from nltk import sent_tokenize
+from torch.nn.functional import softmax
+from transformers import BertForNextSentencePrediction, BertTokenizer
+
+from rag_server.config import BERT_PATH
+
+
+SECTIONS = ['abstract', 'introduction', 'conclusion', 'acknowledgement', 'reference']
+FILTERED_SECTIONS = ['acknowledgement', 'reference', 'acknowledgment']
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
+def set_model(model_name=BERT_PATH):
+    tokz = BertTokenizer.from_pretrained(model_name)
+    model = BertForNextSentencePrediction.from_pretrained(model_name)
+    model = model.to(device)
+    n_gpu = torch.cuda.device_count()
+    if n_gpu > 1:
+        model = torch.nn.DataParallel(model)
+    model.eval()
+    return tokz, model
+
+
+tokz, model = set_model()
+
+
+def model_predict(model,
+                  input_ids,
+                  attention_mask,
+                  token_type_ids, batch_size=64):
+    try:
+        predict_result = model_result(model,
+                                      input_ids,
+                                      attention_mask,
+                                      token_type_ids, batch_size)
+    except RuntimeError:
+        torch.cuda.empty_cache()
+        try:
+            predict_result = model_result(model,
+                                          input_ids,
+                                          attention_mask,
+                                          token_type_ids, batch_size // 2)
+        except RuntimeError:
+            predict_result = model_result(model,
+                                          input_ids,
+                                          attention_mask,
+                                          token_type_ids, batch_size // 4)
+
+    return predict_result
+
+
+def model_result(model,
+                 input_ids,
+                 attention_mask,
+                 token_type_ids, batch_size):
+    model.eval()
+    with torch.no_grad():
+        all_probs = []
+        batch_num = math.ceil(len(input_ids) / batch_size)
+        for i in range(batch_num):
+            start = batch_size * i
+            end = min(start + batch_size, len(input_ids))
+
+            t_input_ids = torch.tensor(input_ids[start:end]).to(device)
+            t_attention_mask = torch.tensor(attention_mask[start:end]).to(device)
+            t_token_type_ids = torch.tensor(token_type_ids[start:end]).to(device)
+
+            outputs = model(input_ids=t_input_ids,
+                            attention_mask=t_attention_mask,
+                            token_type_ids=t_token_type_ids)
+            logits = outputs.logits
+            probs = softmax(logits, dim=1).tolist()
+            all_probs.extend(probs)
+
+    predict_result = [[prob.index(max(prob)), prob[0]] for prob in all_probs]
+    return predict_result
+
+
+def reset_chunk(new_chunks, sentences, max_token_size):
+    if len(sentences) < 1:
+        return
+    if len(sentences) == 1:
+        new_chunks.append(sentences)
+        return
+    all_sen = 0
+    scores = []
+    for i, sen, t_size, score in sentences:
+        all_sen += t_size
+        scores.append(score)
+    if all_sen <= max_token_size:
+        new_chunks.append(sentences)
+        return
+
+    new_score = scores[1:]
+    min_score = min(new_score)
+    ind = new_score.index(min_score) + 1
+
+    r_sens = sentences[:ind]
+    l_sens = sentences[ind:]
+
+    reset_chunk(new_chunks, r_sens, max_token_size)
+    reset_chunk(new_chunks, l_sens, max_token_size)
+
+
+def sentence_counter(text, counter):
+    for c in text:
+        for label in counter:
+            if c == label:
+                counter[label] += 1
+    return counter
+
+
+def concat_sentences(sentences):
+    n_sentences = []
+    temp = []
+    counter = {"(": 0, "[": 0, ")": 0, "]": 0}
+    for sent in sentences:
+        counter = sentence_counter(sent, counter)
+        temp.append(sent)
+        if (counter["("] > counter[")"] or counter["["] > counter["]"]) and len(temp) < 10:
+            continue
+        else:
+            n_sentences.append(temp)
+            temp = []
+            counter = {"(": 0, "[": 0, ")": 0, "]": 0}
+    return [" ".join(s) for s in n_sentences]
+
+
+def merge_chunks(chunks, max_token_size):
+    prev_sum_size = 0
+    n_chunks = []
+    cur_chunk = []
+    for rc in chunks:
+        total_size = sum([int(t) for _, _, t, _ in rc])
+        if prev_sum_size + total_size > max_token_size:
+            prev_sum_size = total_size
+            if len(cur_chunk) > 0:
+                n_chunks.append(cur_chunk)
+            cur_chunk = rc
+        else:
+            cur_chunk.extend(rc)
+            prev_sum_size = prev_sum_size + total_size
+    n_chunks.append(cur_chunk)
+    if len(n_chunks) == 0 or len(n_chunks[0]) == 0:
+        print(chunks)
+        print(n_chunks)
+        print(cur_chunk)
+    return n_chunks
+
+
+def split_long_para(text, tokz, model, max_token_size):
+    sentences = sent_tokenize(text)
+    sentences = concat_sentences(sentences)
+    sentences = [s.strip() for s in sentences if s]
+    if len(sentences) <= 1:
+        return [(s, len(tokz(s).input_ids)) for s in sentences]
+
+    results = [[1, 1]] * len(sentences)
+    tok_sizes = [len(tokz(s).input_ids) for s in sentences]
+    former_sen = sentences[:len(sentences) - 1]
+    latter_sen = sentences[1:]
+
+    tokens = tokz(former_sen, latter_sen, padding='max_length', max_length=512, return_tensors=None)
+    input_ids = []
+    attention_mask = []
+    token_type_ids = []
+    sent_ids = []
+    for i, input_id in enumerate(tokens.input_ids):
+        if len(input_id) > 512:
+            continue
+        sent_ids.append(i + 1)
+        input_ids.append(input_id)
+        attention_mask.append(tokens.attention_mask[i])
+        token_type_ids.append(tokens.token_type_ids[i])
+    model_result = model_predict(model, input_ids, attention_mask, token_type_ids)
+
+    assert len(model_result) == len(sent_ids)
+    for i, mr in zip(sent_ids, model_result):
+        results[i] = mr
+
+    predict_chunks = []
+    for i, (sen, t_size, (relation, score)) in enumerate(zip(sentences, tok_sizes, results)):
+        if len(predict_chunks) == 0:
+            predict_chunks.append([[i, sen, t_size, score]])
+        else:
+            predict_chunks[-1].append([i, sen, t_size, score])
+
+    reset_chunks = []
+    for sentence_info in predict_chunks:
+        temp_chunks = []
+        reset_chunk(temp_chunks, sentence_info, max_token_size)
+        reset_chunks.extend(temp_chunks)
+
+    reset_chunks = merge_chunks(reset_chunks, max_token_size)
+    reset_chunks = [sorted(tc, key=lambda x: x[0]) for tc in reset_chunks]
+    reset_chunks = sorted(reset_chunks, key=lambda x: x[0][0])
+    out_chunks = [(" ".join([s for _, s, _, _ in rc]), sum([int(t) for _, _, t, _ in rc])) for rc in reset_chunks]
+    return out_chunks
+
+
+def cal_size(section):
+    num = 0
+    for c in section.strip():
+        if c == '#':
+            num += 1
+        else:
+            break
+    return num
+
+
+def check_section(text):
+    for i in SECTIONS:
+        if i in text:
+            return True
+    return False
+
+
+def reset_section(sections_dict):
+    # 如果都没有识别主章节，将副章节名称移到主章节名称
+    empty = True
+    for i, sections in sections_dict.items():
+        if sections[0] != '':
+            empty = False
+    if empty:
+        n_sections = {}
+        for i, sections in sections_dict.items():
+            n_sections[i] = (sections[1], '')
+        return n_sections
+    else:
+        return sections_dict
+
+
+def sentence_close(text):
+    # 判断句子是否已经结束
+    left_num = 0
+    right_num = 0
+    for c in text:
+        if c == '(':
+            left_num += 1
+        if c == ')':
+            right_num += 1
+    if right_num < left_num:
+        return False
+    else:
+        return True
+
+
+def filter_section(text):
+    # 去除 Reference 等信息
+    for i in FILTERED_SECTIONS:
+        if i in text.strip().lower():
+            return True
+    return False
+
+
+def _concat(prev, new):
+    if prev[-1] == '-':
+        prev = prev + new
+    else:
+        prev = prev + ' ' + new
+    return prev
+
+
+def concat_ele(ele, n_ls):
+    # 如果前一句判断没有结束，则直接拼接
+    if n_ls != [] and (n_ls[-1][-1] != '.' or not sentence_close(n_ls[-1])):
+        n_ls[-1] = _concat(n_ls[-1], ele)
+        return n_ls
+    # 如果前后两段都特别短，则直接拼接
+    if n_ls != [] and (len(n_ls[-1]) < 100 or len(ele) < 100):
+        n_ls[-1] = n_ls[-1] + "\n" + ele
+        return n_ls
+    n_ls.append(ele)
+    return n_ls
+
+
+def merge_ele(ls):
+    n_ls = []
+    tab_start = False
+    for ele in ls:
+        if len(ele) == 0:
+            continue
+        # 处理表格，将表格信息拼接一起
+        if re.search(r'\|(.+)\|', ele, re.M | re.I):
+            if not tab_start:
+                n_ls.append(ele)
+                tab_start = True
+                continue
+            else:
+                n_ls[-1] = n_ls[-1] + '\n' + ele
+                continue
+        elif tab_start:
+            tab_start = False
+            n_ls.append(ele)
+            continue
+
+        n_ls = concat_ele(ele, n_ls)
+    return n_ls
+
+
+def split_para(text):
+    # 先按 \n 分段
+    ls_0 = [i.strip() for i in text.split("\n") if i]
+    err = []
+    ls = []
+    for i in ls_0:
+        if i == "":
+            continue
+        if not i.startswith("#") and i in ls:
+            err.append(i)
+        else:
+            ls.append(i)
+    return ls
+
+
+def extract_title(info, ele):
+    # 提取标题
+    processed = False
+    if cal_size(ele) == 1:
+        info["title"] = ele.lstrip('#').strip()
+        info["s_index"] = 0
+        info["section"] = ""
+        info["subsection"] = ""
+        info["sections"] = {0: ('', '')}
+        info["raw_dict"] = defaultdict(list)
+        processed = True
+    return info, processed
+
+
+def extract_section(info, match, ele):
+    # 提取主章节名称
+    processed = False
+    if match and (check_section(ele.lstrip('#').strip().lower()) or cal_size(ele)) == 2:
+        info["section"] = ele.lstrip('#').strip()
+        info["subsection"] = ''
+        info["s_index"] += 1
+        info["sections"][info["s_index"]] = (info["section"], info["subsection"])
+        processed = True
+    return info, processed
+
+
+def extract_subsection(info, b_match, b_text, ele):
+    # 提取副章节名称
+    processed = False
+    if cal_size(ele) == 3 or b_text:
+        if b_text:
+            m, n = b_match
+            info["subsection"] = ele[m:n]
+            ele = ele[n:].strip()
+        else:
+            info["subsection"] = ele.lstrip('#').strip()
+            ele = ""
+        info["s_index"] += 1
+        info["sections"][info["s_index"]] = (info["section"], info["subsection"])
+        if ele != "":
+            info["raw_dict"][info["s_index"]].append(ele)
+        processed = True
+    return info, processed
+
+
+def extract_outlines(ls):
+    # 将文本结构化拆分
+    info = {
+        "raw_dict": defaultdict(list),
+        "sections": {0: ('', '')},
+        "title": "",
+        "s_index": 0,
+        "section": "",
+        "subsection": ""
+    }
+
+    for i, ele in enumerate(ls):
+        b_match = re.search(r'\*{2}.{2,}\*{2}', ele, re.M | re.I)
+        match = re.search(r'#+ ', ele, re.M | re.I)
+        if b_match and b_match.span()[0] == 0 and b_match.span()[1] < 50:
+            b_text = True
+        else:
+            b_text = False
+        if match or b_text:
+            # 提取标题
+            info, p_flag = extract_title(info, ele)
+            if p_flag:
+                continue
+            # 提取主章节名称
+            info, p_flag = extract_section(info, match, ele)
+            if p_flag:
+                continue
+            # 提取副章节名称
+            info, p_flag = extract_subsection(info, b_match, b_text, ele)
+            if p_flag:
+                continue
+        info["raw_dict"][info["s_index"]].append(ele)
+    return info
+
+
+def refine_structure(info):
+    # 移除一些空章节，将章节内段落进行有效合并
+    sections = reset_section(info["sections"])
+    s_dict = {}
+    all_s = []
+    for i in sections:
+        if i in info["raw_dict"]:
+            if filter_section(sections[i][0]):
+                break
+            s_list = merge_ele(info["raw_dict"][i])
+            s_dict[i] = s_list
+            all_s.extend(s_list)
+    return sections, s_dict, all_s
+
+
+
+def split_text(text, fn, max_size=512):
+    ls = split_para(text)
+    info = extract_outlines(ls)
+    sections, s_dict, all_s = refine_structure(info)    # 将文本结构化分段
+
+    data = []
+    r_index = 0
+    for i, s_list in s_dict.items():
+        all_para = "\n".join(s_list)
+        total_size = len(tokz(all_para).input_ids)
+        # 较长段落进行 Bert 分段
+        if total_size > max_size:
+            new_eles = split_long_para(all_para, tokz, model, max_size)
+            n_paras = new_eles
+        else:
+            n_paras = [(all_para, total_size)]
+        for para, t_size in n_paras:
+            data.append({'title': info["title"], 'section': sections[i][0], "source": fn,
+                         'subsection': sections[i][1], 'index': r_index, 'text': para, "length": t_size})
+            r_index += 1
+
+    return data
+
+
+
+
+================================================
+FILE: reranking/requirements.txt
+================================================
+uvicorn
+Fastapi
+pydantic
+FlagEmbedding
+sentencepiece
+
+
+================================================
+FILE: reranking/reranker_fast_api.py
+================================================
+import argparse
+import json
+from pydantic import BaseModel
+import uvicorn as uvicorn
+from fastapi import FastAPI
+from FlagEmbedding import FlagReranker
+
+
+parser = argparse.ArgumentParser(description="deploy")
+parser.add_argument('--port', default=8810, type=int)
+parser.add_argument('--model_path', default="", type=str)
+args = parser.parse_args()
+
+
+app = FastAPI()
+reranker = FlagReranker(args.model_path, use_fp16=True)
+
+
+class Queries(BaseModel):
+    qp_pairs: list = []
+
+
+@app.post('/query')
+def insert(data: Queries):
+    pred_scores = reranker.compute_score(data.qp_pairs, normalize=True)
+    return {"pred_scores": json.dumps(pred_scores)}
+
+
+if __name__ == '__main__':
+    uvicorn.run(app=app, host="0.0.0.0", port=args.port)
+
+
