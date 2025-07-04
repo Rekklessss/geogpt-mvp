@@ -204,7 +204,7 @@ preload_models() {
         python -c "
 import os
 import sys
-sys.path.append('/app')
+sys.path.insert(0, '/app')
 
 try:
     from app.config import EMBED_MODEL, RERANK_MODEL, BERT_PATH
@@ -287,8 +287,7 @@ start_application() {
         --timeout-keep-alive 65 \
         --timeout-graceful-shutdown 30 \
         --backlog 2048 \
-        --limit-max-requests 1000 \
-        --limit-max-requests-jitter 50 &
+        --limit-max-requests 1000 &
     
     local uvicorn_pid=$!
     log "🚀 Uvicorn started with PID: $uvicorn_pid"
