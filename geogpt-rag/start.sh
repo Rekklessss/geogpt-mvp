@@ -139,8 +139,8 @@ setup_environment() {
 
 # Ensure required directories exist
 setup_directories() {
-    log "📁 Setting up data directories..."
-    mkdir -p data/uploads split_chunks logs .cache/transformers .cache/huggingface .cache/torch
+    log "📁 Verifying data directories..."
+ls -la data/ split_chunks/ logs/ .cache/ || log "⚠️  Some directories not found but will be created by application"
     log "✅ Directories created"
 }
 

@@ -66,16 +66,16 @@ RUN python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/shar
 COPY app/ ./app/
 COPY start.sh ./
 
-# Create necessary directories with proper permissions
-RUN mkdir -p data/uploads split_chunks logs .cache/transformers .cache/huggingface .cache/torch \
-    && chmod -R 755 data split_chunks logs .cache
+# Create necessary directories with proper permissions (including runtime directories)
+RUN mkdir -p data/uploads split_chunks logs .cache/transformers .cache/huggingface .cache/torch
 
 # Make start script executable
 RUN chmod +x start.sh
 
 # Create nobody user directories and set permissions
 RUN chown -R nobody:nogroup /app \
-    && chmod -R 755 /app
+    && chmod -R 755 /app \
+    && chmod -R 777 data split_chunks logs .cache
 
 # Switch to nobody user for security
 USER nobody
