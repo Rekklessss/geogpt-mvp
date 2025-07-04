@@ -132,24 +132,36 @@ if [ "$REDEPLOY" = true ]; then
     # Clone repository with latest fixes
     log "📥 Cloning latest repository..."
     sudo git clone https://github.com/Rekklessss/geogpt-mvp.git . 2>/dev/null || {
-        sudo git pull origin main 2>/dev/null || {
+        # If already exists, ensure proper permissions and pull
+        log "📥 Repository exists, fixing permissions and updating..."
+        sudo chown -R ubuntu:ubuntu /opt/geogpt-rag/
+        sudo git config --global --add safe.directory /opt/geogpt-rag/app
+        sudo git config --global --add safe.directory /opt/geogpt-rag/app/geogpt-rag
+        git pull origin main 2>/dev/null || {
             log "⚠️  Could not update repository, using existing code"
         }
     }
     
+    # Fix ownership and permissions after clone/pull
+    log "🔧 Fixing ownership and git permissions..."
+    sudo chown -R ubuntu:ubuntu /opt/geogpt-rag/
+    sudo git config --global --add safe.directory /opt/geogpt-rag/app
+    sudo git config --global --add safe.directory /opt/geogpt-rag/app/geogpt-rag
+    
     cd geogpt-rag
     
     # Ensure we have the latest code with all fixes
-    log "📋 Using existing Dockerfile with latest fixes..."
-    sudo git checkout -- Dockerfile 2>/dev/null || true
+    log "📋 Ensuring latest code with all fixes..."
+    git checkout -- Dockerfile 2>/dev/null || true
+    git pull origin main 2>/dev/null || true
     
-    # Build with space optimization
+    # Build with space optimization (without sudo to avoid permission issues)
     log "🏗️  Building with space optimization..."
-    sudo docker compose build --no-cache --pull
+    docker compose build --no-cache --pull
     
     # Start the application
     log "▶️  Starting application..."
-    sudo docker compose up -d
+    docker compose up -d
     
     # Wait for startup
     log "⏳ Waiting for application to start..."
@@ -157,7 +169,7 @@ if [ "$REDEPLOY" = true ]; then
     
     # Check status
     log "📊 Deployment status:"
-    sudo docker compose ps
+    docker compose ps
     
     # Test health
     log "🏥 Testing application health..."
@@ -167,7 +179,7 @@ if [ "$REDEPLOY" = true ]; then
     else
         warn "⚠️  Application health check failed - may still be starting up"
         log "📋 Checking logs:"
-        sudo docker compose logs --tail=20
+        docker compose logs --tail=20
     fi
     
     log "🎉 Space-optimized deployment completed!"
@@ -202,13 +214,16 @@ if [ "$REDEPLOY" = true ]; then
     log "🎉 Complete cleanup and deployment finished!"
     log "📋 Your GeoGPT-RAG application is running!"
     log "   🌐 Access at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_EC2_IP'):8000"
-    log "   📊 Monitor with: cd /opt/geogpt-rag/app/geogpt-rag && sudo docker compose logs -f"
-    log "   🔄 Restart with: cd /opt/geogpt-rag/app/geogpt-rag && sudo docker compose restart"
+    log "   📊 Monitor with: cd /opt/geogpt-rag/app/geogpt-rag && docker compose logs -f"
+    log "   🔄 Restart with: cd /opt/geogpt-rag/app/geogpt-rag && docker compose restart"
+    log "   🧪 Test with: cd /opt/geogpt-rag/app/geogpt-rag && ./run-comprehensive-tests.sh"
 else
     log "🎉 Complete cleanup finished!"
     log "📋 Next steps for manual deployment:"
     log "   1. Run: cd /opt/geogpt-rag/app/geogpt-rag"
-    log "   2. Run: sudo docker compose up -d"
-    log "   3. Monitor: sudo docker compose logs -f"
+    log "   2. Fix permissions: sudo chown -R ubuntu:ubuntu /opt/geogpt-rag/ && sudo git config --global --add safe.directory /opt/geogpt-rag/app/geogpt-rag"
+    log "   3. Update code: git pull origin main"
+    log "   4. Deploy: docker compose up -d"
+    log "   5. Monitor: docker compose logs -f"
 fi
 echo 
