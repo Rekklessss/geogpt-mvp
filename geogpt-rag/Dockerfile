@@ -75,7 +75,8 @@ RUN chmod +x start.sh
 # Create nobody user directories and set permissions
 RUN chown -R nobody:nogroup /app \
     && chmod -R 755 /app \
-    && chmod -R 777 data split_chunks logs .cache
+    && chmod -R 777 data split_chunks logs .cache \
+    && chmod 777 data/uploads
 
 # Switch to nobody user for security
 USER nobody

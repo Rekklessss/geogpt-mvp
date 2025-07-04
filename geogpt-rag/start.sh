@@ -287,8 +287,8 @@ start_application() {
         --timeout-keep-alive 65 \
         --timeout-graceful-shutdown 30 \
         --backlog 2048 \
-        --max-requests 1000 \
-        --max-requests-jitter 50 &
+        --limit-max-requests 1000 \
+        --limit-max-requests-jitter 50 &
     
     local uvicorn_pid=$!
     log "🚀 Uvicorn started with PID: $uvicorn_pid"

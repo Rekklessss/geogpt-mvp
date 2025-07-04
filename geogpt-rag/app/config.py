@@ -13,7 +13,14 @@ from pathlib import Path
 # ─────────────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "data" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Create upload directory with error handling
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except PermissionError:
+    # If we can't create the directory due to permissions, 
+    # it will be created by the application when needed
+    pass
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Embedding / Reranking
