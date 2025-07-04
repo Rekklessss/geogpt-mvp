@@ -82,20 +82,12 @@ services:
     networks:
       - geogpt-rag-network
 
-# Named volumes for model persistence across container restarts
+# Docker-managed volumes for better EC2 compatibility
 volumes:
   model_cache:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /opt/geogpt-rag/model_cache  # EC2 mounted volume
   huggingface_cache:
     driver: local
-    driver_opts:
-      type: none  
-      o: bind
-      device: /opt/geogpt-rag/huggingface_cache  # EC2 mounted volume
 
 # Custom network for better container isolation
 networks:
