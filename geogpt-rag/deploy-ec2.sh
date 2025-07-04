@@ -33,10 +33,20 @@ error() {
 check_instance() {
     log "🔍 Verifying EC2 instance..."
     
-    # Get instance metadata
-    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "unknown")
-    INSTANCE_TYPE=$(curl -s http://169.254.169.254/latest/meta-data/instance-type 2>/dev/null || echo "unknown")
-    PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "unknown")
+    # Get instance metadata (support for both IMDSv1 and IMDSv2)
+    TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null || echo "")
+    
+    if [ -n "$TOKEN" ]; then
+        # Use IMDSv2 with token
+        INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "unknown")
+        INSTANCE_TYPE=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-type 2>/dev/null || echo "unknown")
+        PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "unknown")
+    else
+        # Fallback to IMDSv1
+        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "unknown")
+        INSTANCE_TYPE=$(curl -s http://169.254.169.254/latest/meta-data/instance-type 2>/dev/null || echo "unknown")
+        PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "unknown")
+    fi
     
     log "Instance ID: $INSTANCE_ID"
     log "Instance Type: $INSTANCE_TYPE"
@@ -121,10 +131,9 @@ install_nvidia_container_toolkit() {
         return
     fi
     
-    # Add NVIDIA package repositories
-    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+    # Add NVIDIA package repositories (fixed for Ubuntu 24.04 compatibility)
     curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
         sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
     
@@ -176,8 +185,8 @@ setup_repository() {
         sudo mkdir -p "$APP_DIR"
         sudo chown $USER:docker "$APP_DIR"
         
-        # Replace with your actual repository URL
-        git clone https://github.com/your-org/geogpt-mvp.git "$APP_DIR"
+        # Clone the GeoGPT-RAG repository
+        git clone https://github.com/Rekklessss/geogpt-mvp.git "$APP_DIR"
         cd "$APP_DIR/geogpt-rag"
     fi
     
@@ -272,8 +281,10 @@ monitor_deployment() {
     # Final status check
     if curl -f http://localhost:8000/health &>/dev/null; then
         log "🎉 GeoGPT-RAG deployment successful!"
-        log "🌐 API available at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8000"
-        log "📚 API Documentation: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8000/docs"
+        # Get public IP for final URLs
+        FINAL_PUBLIC_IP=$(if [ -n "$TOKEN" ]; then curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null; else curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null; fi || echo "$PUBLIC_IP")
+        log "🌐 API available at: http://$FINAL_PUBLIC_IP:8000"
+        log "📚 API Documentation: http://$FINAL_PUBLIC_IP:8000/docs"
     else
         error "❌ Application failed to start properly. Check logs with: docker compose logs"
     fi
