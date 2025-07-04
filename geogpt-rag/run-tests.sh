@@ -210,7 +210,7 @@ if command -v docker &> /dev/null; then
         log "✅ Docker is running"
         
         # Check NVIDIA Docker support if available
-        if docker run --rm --gpus all nvidia/cuda:11.8-base-ubuntu20.04 echo "GPU test" &>/dev/null; then
+        if docker run --rm --gpus all nvidia/cuda:12.8.0-cudnn-devel-ubuntu24.04 echo "GPU test" &>/dev/null; then
             log "✅ NVIDIA Docker support available"
         else
             warn "NVIDIA Docker support not available (will use CPU)"

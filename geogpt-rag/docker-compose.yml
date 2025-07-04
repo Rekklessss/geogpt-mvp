@@ -60,7 +60,6 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-              device_ids: ['0']  # Explicit A10G GPU assignment
     logging:
       driver: "json-file"  # Use json-file for EC2 compatibility
       options:

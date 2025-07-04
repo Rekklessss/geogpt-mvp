@@ -1,18 +1,25 @@
 # Multi-stage build for GeoGPT-RAG optimized for g5.xlarge
-FROM nvidia/cuda:12.1-devel-ubuntu22.04 AS base
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu24.04 AS base
 
-# Set environment variables
+# Set environment variables optimized for Ubuntu 24.04 Noble + CUDA 12.8
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
     CUDA_VISIBLE_DEVICES=0 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    CUDA_MODULE_LOADING=LAZY \
+    GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1 \
+    GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1 \
+    GRPC_PYTHON_BUILD_EXT_COMPILER_JOBS=4
 
-# Install system dependencies
+# Install system dependencies optimized for Ubuntu 24.04 Noble
 RUN apt-get update && apt-get install -y \
-    python3.10 \
-    python3.10-dev \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
     python3-pip \
     curl \
     wget \
@@ -23,13 +30,22 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     lsb-release \
     gnupg \
+    cmake \
+    ninja-build \
+    libc-ares-dev \
+    libssl-dev \
+    libffi-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create symlink for python
-RUN ln -sf /usr/bin/python3.10 /usr/bin/python
+# Create symlink for python (Ubuntu 24.04 uses Python 3.12)
+RUN ln -sf /usr/bin/python3.12 /usr/bin/python \
+    && ln -sf /usr/bin/python3.12 /usr/bin/python3
 
-# Upgrade pip and install wheel
-RUN python -m pip install --upgrade pip setuptools wheel
+# Skip pip upgrade - system packages are sufficient for Ubuntu 24.04
+# RUN python -m pip install --break-system-packages --upgrade pip setuptools wheel
 
 # Set working directory
 WORKDIR /app
@@ -37,8 +53,11 @@ WORKDIR /app
 # Copy requirements first for better caching
 COPY app/requirements.txt .
 
-# Install Python dependencies with better error handling
-RUN pip install --no-cache-dir --timeout 1000 -r requirements.txt
+# Install Python dependencies optimized for Ubuntu 24.04 (prefer binary wheels)
+RUN pip install --break-system-packages --no-cache-dir --timeout 1000 \
+    --prefer-binary --only-binary=grpcio,protobuf,numpy,scipy \
+    --extra-index-url https://download.pytorch.org/whl/cu121 \
+    -r requirements.txt
 
 # Install additional NLTK data required by text splitter
 RUN python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/share/nltk_data')"
