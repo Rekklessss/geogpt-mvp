@@ -92,11 +92,14 @@ pytest -n auto
 ### Key Test Files
 
 - `test_api.py` - Main API endpoint tests
+- `test_sagemaker_integration.py` - AWS SageMaker LLM integration tests
+- `test_cuda_compatibility.py` - CUDA 12.8 and GPU compatibility tests
 - `pytest.ini` - Test configuration
 - `conftest.py` - Shared test fixtures (if needed)
 
 ### Test Classes
 
+#### API Tests (`test_api.py`)
 1. **TestRootEndpoints** - Basic API endpoints
 2. **TestFileUpload** - Document upload functionality
 3. **TestQueryEndpoints** - Query and retrieval operations
@@ -105,6 +108,16 @@ pytest -n auto
 6. **TestErrorHandling** - Error conditions
 7. **TestIntegration** - End-to-end workflows
 8. **TestPerformance** - Performance characteristics
+
+#### CUDA Compatibility Tests (`test_cuda_compatibility.py`)
+1. **TestCUDACompatibility** - CUDA 12.8 and GPU functionality
+2. **TestPerformanceWithGPU** - GPU performance validation
+
+#### SageMaker Integration Tests (`test_sagemaker_integration.py`)
+1. **TestSageMakerLLMClient** - SageMaker client functionality
+2. **TestSageMakerIntegration** - RAG pipeline integration
+3. **TestSageMakerRAGIntegration** - Full workflow testing
+4. **TestSageMakerAPIIntegration** - API endpoint integration
 
 ## 🛠️ Test Configuration
 
@@ -165,6 +178,24 @@ pytest --log-cli-level=DEBUG
 pytest --lf
 ```
 
+## 🚀 Comprehensive Pipeline Testing
+
+For complete validation of the deployed system (especially after CUDA 12.8 updates):
+
+```bash
+# Run the comprehensive test suite on EC2
+./run-comprehensive-tests.sh
+```
+
+This script validates:
+- ✅ Docker environment and containers
+- ✅ Python 3.12 + CUDA 12.8 compatibility  
+- ✅ Updated dependencies (pymilvus 2.4.10, tf-keras, etc.)
+- ✅ GPU access and tensor operations
+- ✅ API endpoints and integration
+- ✅ Performance metrics
+- ✅ Full pytest suite
+
 ## 🔄 Continuous Integration
 
 For CI/CD pipelines, use:
@@ -175,6 +206,9 @@ pytest --maxfail=5 --tb=short
 
 # With coverage and XML output for CI tools
 pytest --cov=app --cov-report=xml --junitxml=test-results.xml
+
+# Comprehensive Docker-based testing
+./run-comprehensive-tests.sh
 ```
 
 ## 📝 Adding New Tests
