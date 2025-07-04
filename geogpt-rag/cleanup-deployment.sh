@@ -145,11 +145,11 @@ if [ "$REDEPLOY" = true ]; then
     
     # Build with space optimization
     log "🏗️  Building with space optimization..."
-    sudo docker-compose build --no-cache --pull
+    sudo docker compose build --no-cache --pull
     
     # Start the application
     log "▶️  Starting application..."
-    sudo docker-compose up -d
+    sudo docker compose up -d
     
     # Wait for startup
     log "⏳ Waiting for application to start..."
@@ -157,7 +157,7 @@ if [ "$REDEPLOY" = true ]; then
     
     # Check status
     log "📊 Deployment status:"
-    sudo docker-compose ps
+    sudo docker compose ps
     
     # Test health
     log "🏥 Testing application health..."
@@ -167,7 +167,7 @@ if [ "$REDEPLOY" = true ]; then
     else
         warn "⚠️  Application health check failed - may still be starting up"
         log "📋 Checking logs:"
-        sudo docker-compose logs --tail=20
+        sudo docker compose logs --tail=20
     fi
     
     log "🎉 Space-optimized deployment completed!"
@@ -202,13 +202,13 @@ if [ "$REDEPLOY" = true ]; then
     log "🎉 Complete cleanup and deployment finished!"
     log "📋 Your GeoGPT-RAG application is running!"
     log "   🌐 Access at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_EC2_IP'):8000"
-    log "   📊 Monitor with: cd /opt/geogpt-rag/app/geogpt-rag && sudo docker-compose logs -f"
-    log "   🔄 Restart with: cd /opt/geogpt-rag/app/geogpt-rag && sudo docker-compose restart"
+    log "   📊 Monitor with: cd /opt/geogpt-rag/app/geogpt-rag && sudo docker compose logs -f"
+    log "   🔄 Restart with: cd /opt/geogpt-rag/app/geogpt-rag && sudo docker compose restart"
 else
     log "🎉 Complete cleanup finished!"
     log "📋 Next steps for manual deployment:"
     log "   1. Run: cd /opt/geogpt-rag/app/geogpt-rag"
-    log "   2. Run: sudo docker-compose up -d"
-    log "   3. Monitor: sudo docker-compose logs -f"
+    log "   2. Run: sudo docker compose up -d"
+    log "   3. Monitor: sudo docker compose logs -f"
 fi
 echo 
