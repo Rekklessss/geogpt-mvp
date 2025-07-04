@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # =====================================================================================
-# GeoGPT-RAG Complete Deployment Cleanup Script
-# Removes all previous deployment artifacts for fresh start
+# GeoGPT-RAG Complete Cleanup and Space-Optimized Deployment Script
+# Removes all previous deployment artifacts and redeploys with space optimization
 # =====================================================================================
 
 set -e
@@ -20,15 +20,28 @@ error() {
     echo -e "\033[31m[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1\033[0m"
 }
 
-echo "🧹 GeoGPT-RAG Complete Cleanup"
-echo "=============================="
+echo "🧹 GeoGPT-RAG Complete Cleanup & Space-Optimized Deployment"
+echo "============================================================"
+
+# Show initial disk usage
+log "📊 Initial disk usage:"
+df -h / | tail -1 | awk '{print "  - Available: " $4 " (" $5 " used)"}'
 
 # Confirm destructive operation
-read -p "⚠️  This will remove ALL Docker containers, images, volumes, and cached files. Continue? (y/N): " -n 1 -r
+read -p "⚠️  This will remove ALL Docker containers, images, volumes, cached files, and redeploy. Continue? (y/N): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     log "Cleanup cancelled"
     exit 0
+fi
+
+# Ask if user wants automatic redeployment
+read -p "🚀 Auto-redeploy after cleanup? (Y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Nn]$ ]]; then
+    REDEPLOY=false
+else
+    REDEPLOY=true
 fi
 
 # Stop and remove all GeoGPT-RAG related containers
@@ -84,10 +97,84 @@ sudo rm -rf /usr/local/share/nltk_data 2>/dev/null || true
 sudo rm -rf /usr/share/nltk_data 2>/dev/null || true
 sudo rm -rf ~/.nltk_data 2>/dev/null || true
 
+# Additional aggressive cleanup for space
+log "🗑️  Aggressive space cleanup..."
+sudo apt clean
+sudo apt autoclean
+sudo apt autoremove -y
+sudo rm -rf /tmp/* 2>/dev/null || true
+sudo rm -rf /var/tmp/* 2>/dev/null || true
+sudo rm -rf /root/.cache/* 2>/dev/null || true
+rm -rf ~/.cache/* 2>/dev/null || true
+
+# Clean system logs older than 1 day
+log "📄 Cleaning old log files..."
+sudo journalctl --vacuum-time=1d
+sudo find /var/log -name "*.log" -type f -mtime +7 -delete 2>/dev/null || true
+
 # Reset Docker daemon (optional but recommended)
 log "🔄 Restarting Docker daemon..."
 sudo systemctl restart docker
 sleep 5
+
+# Show space after cleanup
+log "📊 Space freed up:"
+df -h / | tail -1 | awk '{print "  - Available: " $4 " (" $5 " used)"}'
+
+# Space-optimized deployment
+if [ "$REDEPLOY" = true ]; then
+    log "🚀 Starting space-optimized deployment..."
+    
+    # Create deployment directory
+    sudo mkdir -p /opt/geogpt-rag/app
+    cd /opt/geogpt-rag/app
+    
+    # Clone repository with latest fixes
+    log "📥 Cloning latest repository..."
+    sudo git clone https://github.com/Rekklessss/geogpt-mvp.git . 2>/dev/null || {
+        sudo git pull origin main 2>/dev/null || {
+            log "⚠️  Could not update repository, using existing code"
+        }
+    }
+    
+    cd geogpt-rag
+    
+    # Ensure we have the latest code with all fixes
+    log "📋 Using existing Dockerfile with latest fixes..."
+    sudo git checkout -- Dockerfile 2>/dev/null || true
+    
+    # Build with space optimization
+    log "🏗️  Building with space optimization..."
+    sudo docker-compose build --no-cache --pull
+    
+    # Start the application
+    log "▶️  Starting application..."
+    sudo docker-compose up -d
+    
+    # Wait for startup
+    log "⏳ Waiting for application to start..."
+    sleep 30
+    
+    # Check status
+    log "📊 Deployment status:"
+    sudo docker-compose ps
+    
+    # Test health
+    log "🏥 Testing application health..."
+    sleep 30
+    if curl -f http://localhost:8000/health 2>/dev/null; then
+        log "✅ Application is healthy!"
+    else
+        warn "⚠️  Application health check failed - may still be starting up"
+        log "📋 Checking logs:"
+        sudo docker-compose logs --tail=20
+    fi
+    
+    log "🎉 Space-optimized deployment completed!"
+    log "🌐 Application URL: http://$(curl -s ifconfig.me):8000"
+else
+    log "⏭️  Skipping deployment as requested"
+fi
 
 # Verify cleanup
 log "✅ Cleanup completed! Verifying..."
@@ -111,9 +198,17 @@ else
 fi
 
 echo
-log "🎉 Complete cleanup finished!"
-log "📋 Next steps:"
-log "   1. Run: cd /tmp && wget https://raw.githubusercontent.com/Rekklessss/geogpt-mvp/main/geogpt-rag/deploy-ec2.sh"
-log "   2. Run: chmod +x deploy-ec2.sh"
-log "   3. Run: ./deploy-ec2.sh"
+if [ "$REDEPLOY" = true ]; then
+    log "🎉 Complete cleanup and deployment finished!"
+    log "📋 Your GeoGPT-RAG application is running!"
+    log "   🌐 Access at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_EC2_IP'):8000"
+    log "   📊 Monitor with: cd /opt/geogpt-rag/app/geogpt-rag && sudo docker-compose logs -f"
+    log "   🔄 Restart with: cd /opt/geogpt-rag/app/geogpt-rag && sudo docker-compose restart"
+else
+    log "🎉 Complete cleanup finished!"
+    log "📋 Next steps for manual deployment:"
+    log "   1. Run: cd /opt/geogpt-rag/app/geogpt-rag"
+    log "   2. Run: sudo docker-compose up -d"
+    log "   3. Monitor: sudo docker-compose logs -f"
+fi
 echo 
