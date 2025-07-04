@@ -161,23 +161,46 @@ async def upload_document(
         )
     
     try:
-        # Save uploaded file
-        file_path = UPLOAD_DIR / (file.filename or "upload.txt")
+        # Ensure upload directory exists
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         
+        # Clean and secure the filename
+        original_filename = file.filename or "upload.txt"
+        # Remove any path components and ensure it's just a filename
+        safe_filename = Path(original_filename).name
+        if not safe_filename:
+            safe_filename = "upload.txt"
+        
+        # Save uploaded file
+        file_path = UPLOAD_DIR / safe_filename
+        
+        # Read file content first
+        content = await file.read()
+        
+        # Check if file is empty
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded file is empty"
+            )
+        
+        # Write file to disk
         with open(file_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
         
         # Process file in background
         background_tasks.add_task(process_document_background, str(file_path))
         
         return DocumentUploadResponse(
-            filename=file.filename or "unknown",
+            filename=safe_filename,
             status="processing",
             chunks_created=0,  # Will be updated after processing
             message="Document uploaded successfully and is being processed"
         )
         
+    except HTTPException:
+        # Re-raise HTTP exceptions (like empty file)
+        raise
     except Exception as e:
         logging.error(f"Error uploading document: {e}")
         raise HTTPException(
@@ -258,7 +281,7 @@ async def retrieve_documents(request: QueryRequest):
         return {
             "query": request.query,
             "documents": documents,
-            "count": len(documents)
+            "retrieval_count": len(documents)
         }
         
     except Exception as e:
@@ -284,7 +307,10 @@ async def drop_collection():
     
     try:
         kb_instance.drop_collection()
-        return {"message": f"Collection '{MILVUS_COLLECTION}' dropped successfully"}
+        return {
+            "message": "Collection dropped successfully",
+            "collection": MILVUS_COLLECTION
+        }
         
     except Exception as e:
         logging.error(f"Error dropping collection: {e}")
@@ -304,12 +330,26 @@ async def get_stats():
         )
     
     try:
-        # Basic stats - could be expanded
+        # Get document count from vector store if available
+        document_count = 0
+        stats_status = "operational"
+        
+        try:
+            if hasattr(kb_instance, 'vector_store') and kb_instance.vector_store and hasattr(kb_instance.vector_store, 'col'):
+                if kb_instance.vector_store.col is not None:
+                    document_count = kb_instance.vector_store.col.num_entities
+                else:
+                    stats_status = "no_collection"
+        except Exception:
+            # If we can't get the count, default to 0
+            pass
+        
         return {
             "collection_name": MILVUS_COLLECTION,
+            "document_count": document_count,
             "upload_directory": str(UPLOAD_DIR),
             "llm_provider": LLM_PROVIDER,
-            "status": "operational"
+            "status": stats_status
         }
         
     except Exception as e:

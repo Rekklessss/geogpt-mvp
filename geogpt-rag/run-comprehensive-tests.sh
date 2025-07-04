@@ -376,11 +376,15 @@ log "🔢 Phase 6: Vector Store & Embedding Quality Testing"
 
 test_info "Testing embedding generation quality..."
 docker compose exec geogpt-rag python -c "
+import os
 import sys
-sys.path.append('/app/app')
-from embeddings import GeoEmbeddings
+# Add the parent directory to Python path so 'app' can be imported as a package
+sys.path.insert(0, '/app')
+os.chdir('/app')
 
 try:
+    from app.embeddings import GeoEmbeddings
+    
     embedder = GeoEmbeddings()
     
     # Test embedding generation
@@ -414,15 +418,21 @@ try:
         
 except Exception as e:
     print(f'❌ Embedding test failed: {e}')
+    import traceback
+    traceback.print_exc()
 " && record_test "Embedding Quality" "PASS" || record_test "Embedding Quality" "FAIL"
 
 test_info "Testing vector store operations..."
 docker compose exec geogpt-rag python -c "
+import os
 import sys
-sys.path.append('/app/app')
-from kb import KBDocQA
+# Add the parent directory to Python path so 'app' can be imported as a package
+sys.path.insert(0, '/app')
+os.chdir('/app')
 
 try:
+    from app.kb import KBDocQA
+    
     kb = KBDocQA()
     
     # Test vector store connection
@@ -441,6 +451,8 @@ try:
         
 except Exception as e:
     print(f'❌ Vector store test failed: {e}')
+    import traceback
+    traceback.print_exc()
 " && record_test "Vector Store Operations" "PASS" || record_test "Vector Store Operations" "FAIL"
 
 success "✅ Phase 6 completed: Vector store and embeddings tested"
@@ -453,12 +465,16 @@ log "🎯 Phase 7: Reranking & Relevance Testing"
 
 test_info "Testing reranking functionality..."
 docker compose exec geogpt-rag python -c "
+import os
 import sys
-sys.path.append('/app/app')
-from reranking import GeoReranker
+# Add the parent directory to Python path so 'app' can be imported as a package
+sys.path.insert(0, '/app')
+os.chdir('/app')
 
 try:
-    reranker = GeoReranker()
+    from app.reranking import GeoReRanking
+    
+    reranker = GeoReRanking()
     
     # Test reranking with geographic query
     query = 'satellite applications in environmental monitoring'
@@ -490,6 +506,8 @@ try:
         
 except Exception as e:
     print(f'❌ Reranking test failed: {e}')
+    import traceback
+    traceback.print_exc()
 " && record_test "Reranking Functionality" "PASS" || record_test "Reranking Functionality" "FAIL"
 
 success "✅ Phase 7 completed: Reranking tested"
@@ -502,12 +520,16 @@ log "📄 Phase 8: Document Processing Pipeline Testing"
 
 test_info "Testing text splitting and chunking..."
 docker compose exec geogpt-rag python -c "
+import os
 import sys
-sys.path.append('/app/app')
-from utils.parsers import SemanticChunker
+# Add the parent directory to Python path so 'app' can be imported as a package
+sys.path.insert(0, '/app')
+os.chdir('/app')
 
 try:
-    chunker = SemanticChunker()
+    from app.utils.parsers import TextSplitter
+    
+    chunker = TextSplitter()
     
     # Test with a longer document
     test_doc = '''
@@ -537,6 +559,8 @@ try:
         
 except Exception as e:
     print(f'❌ Document processing test failed: {e}')
+    import traceback
+    traceback.print_exc()
 " && record_test "Document Processing" "PASS" || record_test "Document Processing" "FAIL"
 
 success "✅ Phase 8 completed: Document processing tested"

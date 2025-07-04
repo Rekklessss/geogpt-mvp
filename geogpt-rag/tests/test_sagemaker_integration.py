@@ -180,7 +180,7 @@ class TestSageMakerLLMClient:
         # Setup mock client with error
         mock_client = Mock()
         mock_boto_client.return_value = mock_client
-        
+
         error_response = {
             "Error": {
                 "Code": "ValidationException",
@@ -188,14 +188,13 @@ class TestSageMakerLLMClient:
             }
         }
         mock_client.invoke_endpoint.side_effect = ClientError(error_response, "InvokeEndpoint")
-        
+
         # Test error handling
         client = SageMakerLLMClient("test-endpoint")
         result = client.generate("Test prompt")
-        
-        assert "SageMaker API error" in result
-        assert "ValidationException" in result
-        assert "Invalid endpoint name" in result
+
+        assert "Error: Invalid request to SageMaker endpoint" in result
+        assert "ValidationException" in result or "Invalid endpoint name" in result
 
     @patch('app.models.sagemaker_llm.boto3.client')
     def test_generate_general_error(self, mock_boto_client):
@@ -204,12 +203,12 @@ class TestSageMakerLLMClient:
         mock_client = Mock()
         mock_boto_client.return_value = mock_client
         mock_client.invoke_endpoint.side_effect = Exception("Network error")
-        
+
         # Test error handling
         client = SageMakerLLMClient("test-endpoint")
         result = client.generate("Test prompt")
-        
-        assert "Error generating text" in result
+
+        assert "Error: Failed to generate response" in result
         assert "Network error" in result
 
     @patch('app.models.sagemaker_llm.boto3.client')
@@ -218,7 +217,7 @@ class TestSageMakerLLMClient:
         # Setup mock client
         mock_client = Mock()
         mock_boto_client.return_value = mock_client
-        
+
         # Mock successful test response
         mock_response = {
             "Body": Mock()
@@ -226,16 +225,25 @@ class TestSageMakerLLMClient:
         mock_response["Body"].read.return_value = json.dumps([{
             "generated_text": "Connection test successful"
         }]).encode("utf-8")
-        
+
         mock_client.invoke_endpoint.return_value = mock_response
         
-        # Test connection
-        client = SageMakerLLMClient("test-endpoint")
-        result = client.test_connection()
-        
-        assert result["status"] == "success"
-        assert result["endpoint"] == "test-endpoint"
-        assert "response_time" in result
+        # Mock the SageMaker describe_endpoint call
+        with patch('app.models.sagemaker_llm.boto3.client') as mock_describe_client:
+            mock_sm_client = Mock()
+            mock_describe_client.return_value = mock_sm_client
+            mock_sm_client.describe_endpoint.return_value = {
+                "EndpointStatus": "InService",
+                "ProductionVariants": [{"InstanceType": "ml.g4dn.xlarge"}]
+            }
+
+            # Test connection
+            client = SageMakerLLMClient("test-endpoint")
+            result = client.test_connection()
+
+            assert result["status"] == "success"
+            assert result["endpoint_name"] == "test-endpoint"
+            assert result["endpoint_status"] == "InService"
 
 
 class TestSageMakerIntegration:

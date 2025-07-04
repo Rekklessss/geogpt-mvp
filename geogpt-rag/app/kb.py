@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
 import openai
-from langchain.vectorstores import Milvus
+from langchain_community.vectorstores import Milvus
 from pymilvus import Collection
 
 from .embeddings import GeoEmbeddings
