@@ -216,14 +216,15 @@ log "🔗 Phase 5: Integration Testing"
 
 # Test file upload functionality (with mock file)
 info "Testing file upload integration..."
+TEST_FILE="/tmp/test_upload.txt"
 echo "This is a test document for upload testing.
 It contains sample text for the GeoGPT-RAG system.
 # Test Section
-This is a test section with some geographic information." > test_upload.txt
+This is a test section with some geographic information." > "$TEST_FILE"
 
 UPLOAD_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST http://localhost:8000/upload \
-    -F "file=@test_upload.txt" || echo "000")
+    -F "file=@$TEST_FILE" || echo "000")
 
 if [[ "$UPLOAD_RESPONSE" == "200" ]]; then
     success "✅ File upload integration working"
@@ -234,7 +235,7 @@ else
 fi
 
 # Clean up test file
-rm -f test_upload.txt
+rm -f "$TEST_FILE"
 
 # Test query endpoint
 info "Testing query integration..."

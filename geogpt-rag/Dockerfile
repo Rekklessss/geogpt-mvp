@@ -64,6 +64,7 @@ RUN python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/shar
 
 # Copy application code
 COPY app/ ./app/
+COPY tests/ ./tests/
 COPY start.sh ./
 
 # Create necessary directories with proper permissions (including runtime directories)
