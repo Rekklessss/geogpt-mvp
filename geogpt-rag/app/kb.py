@@ -23,6 +23,7 @@ from pymilvus import Collection
 from .embeddings import GeoEmbeddings
 from .reranking import GeoReRanking
 from .utils.parsers import split_text
+from .models.sagemaker_llm import SageMakerLLMClient
 from .config import (
     CONNECTION_ARGS, 
     MILVUS_COLLECTION, 
@@ -34,8 +35,13 @@ from .config import (
     EXPAND_RANGE, 
     TOP_K, 
     SCORE_THRESHOLD, 
+    LLM_PROVIDER,
     LLM_URL, 
     LLM_KEY, 
+    SAGEMAKER_ENDPOINT_NAME,
+    AWS_REGION,
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
     RAG_PROMPT,
     BASE_DIR,
     today
@@ -85,7 +91,16 @@ def filter_documents_by_score(docs: List[Dict[str, Any]], score_threshold: float
 
 
 def generate_llm_response(prompt: str) -> str:
-    """Generate response using external LLM."""
+    """Generate response using external LLM (OpenAI-compatible or SageMaker)."""
+    
+    if LLM_PROVIDER.lower() == "sagemaker":
+        return _generate_sagemaker_response(prompt)
+    else:
+        return _generate_openai_compatible_response(prompt)
+
+
+def _generate_openai_compatible_response(prompt: str) -> str:
+    """Generate response using OpenAI-compatible API."""
     if not LLM_URL or not LLM_KEY:
         logger.warning("LLM_URL or LLM_KEY not configured, returning fallback response")
         return "I apologize, but I cannot generate a response as the LLM service is not properly configured."
@@ -118,14 +133,45 @@ def generate_llm_response(prompt: str) -> str:
                 return response.choices[0].message.content
             
             except Exception as e:
-                logger.error(f"LLM generation attempt {attempt + 1} failed: {e}")
+                logger.error(f"OpenAI-compatible LLM generation attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
                     time.sleep(1)
                 else:
                     raise
                     
     except Exception as e:
-        logger.error(f"LLM generation error: {e}")
+        logger.error(f"OpenAI-compatible LLM generation error: {e}")
+        return f"I apologize, but I encountered an error while generating a response: {str(e)}"
+
+
+def _generate_sagemaker_response(prompt: str) -> str:
+    """Generate response using AWS SageMaker endpoint."""
+    if not SAGEMAKER_ENDPOINT_NAME:
+        logger.warning("SAGEMAKER_ENDPOINT_NAME not configured, returning fallback response")
+        return "I apologize, but I cannot generate a response as the SageMaker endpoint is not properly configured."
+    
+    try:
+        # Initialize SageMaker client
+        sagemaker_client = SageMakerLLMClient(
+            endpoint_name=SAGEMAKER_ENDPOINT_NAME,
+            region_name=AWS_REGION,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+        )
+        
+        # Generate response
+        response = sagemaker_client.generate(
+            prompt=prompt,
+            max_tokens=32768,
+            temperature=0.7,
+            top_p=0.8,
+            timeout=300
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"SageMaker LLM generation error: {e}")
         return f"I apologize, but I encountered an error while generating a response: {str(e)}"
 
 

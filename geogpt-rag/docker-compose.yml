@@ -11,12 +11,12 @@ services:
     environment:
       - PYTHONPATH=/app
       - CUDA_VISIBLE_DEVICES=0
-      # 🚀 Optimized for g5.xlarge (24 GB VRAM)
+      # 🚀 Optimized for g5.xlarge (24 GB VRAM + 16 GB RAM)
       - EMBEDDING_DEVICE=cuda
       - RERANKING_DEVICE=cuda
       - TEXT_SPLITTER_DEVICE=cuda
       - LOG_LEVEL=INFO
-      # 🎯 Enhanced batch sizes for A10G GPU
+      # 🎯 Enhanced batch sizes for A10G GPU (24GB VRAM)
       - EMBEDDING_BATCH_SIZE=64
       - RERANKING_BATCH_SIZE=64
       - VEC_RECALL_NUM=128
@@ -24,58 +24,84 @@ services:
       - EMBEDDING_FP16=true
       - RERANKING_FP16=true
       - PRELOAD_MODELS=true
-      # 📁 Set cache directories that the nobody user can access
+      # 📁 Cache directories for nobody user
       - TRANSFORMERS_CACHE=/app/.cache/transformers
       - HF_HOME=/app/.cache/huggingface
       - TORCH_HOME=/app/.cache/torch
-      # 🛡️ Error prevention and memory management
-      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:2048
+      - NLTK_DATA=/usr/local/share/nltk_data
+      # 🛡️ Memory management for g5.xlarge
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:2048,expandable_segments:True
       - TOKENIZERS_PARALLELISM=false
       - OMP_NUM_THREADS=4
       - CUDA_LAUNCH_BLOCKING=0
-      # 🚨 Graceful degradation settings
-      - FALLBACK_TO_CPU_ON_OOM=false
+      # 🔥 GPU optimizations for A10G
       - TORCH_CUDNN_V8_API_ENABLED=1
+      - TORCH_CUDNN_BENCHMARK=1
+      # 🚨 EC2 specific settings
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_REGION=us-east-1
     volumes:
-      - ./data:/app/data                    # Document uploads and chunks
-      - ./logs:/app/logs                    # Application logs
-      - model_cache:/app/.cache             # Model cache persistence (fixed path)
-      - huggingface_cache:/app/.cache/huggingface  # HuggingFace model cache (fixed path)
+      # Mount host directories for persistence on EC2
+      - ./data:/app/data:rw                    # Document uploads and processing
+      - ./logs:/app/logs:rw                    # Application logs  
+      - ./split_chunks:/app/split_chunks:rw    # Text chunks storage
+      - model_cache:/app/.cache:rw             # Model cache persistence
+      - huggingface_cache:/app/.cache/huggingface:rw  # HuggingFace models
     deploy:
       resources:
         # 🎯 Optimized for g5.xlarge (16 GB RAM + 24 GB VRAM)
         limits:
-          memory: 14G          # Leave 2G for system
-          cpus: '3.5'          # Use most of 4 vCPUs
+          memory: 14G          # Leave 2G for system processes
+          cpus: '3.8'          # Use most of 4 vCPUs, leave some for system
         reservations:
-          memory: 10G          # Reserve enough for models
+          memory: 10G          # Reserve enough for model loading
           cpus: '2.0'          # Guarantee minimum CPU
           devices:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-              device_ids: ['0']  # Explicit GPU assignment
+              device_ids: ['0']  # Explicit A10G GPU assignment
     logging:
-      driver: awslogs
+      driver: "json-file"  # Use json-file for EC2 compatibility
       options:
-        awslogs-region: ${AWS_DEFAULT_REGION:-ap-south-1}
-        awslogs-group: GeoGPT-RAG-Logs
-        awslogs-stream: rag-api
-        awslogs-create-group: "true"
+        max-size: "100m"
+        max-file: "5"
+        # CloudWatch logging (requires awslogs driver configuration)
+        # Uncomment if you want CloudWatch integration:
+        # awslogs-region: ${AWS_DEFAULT_REGION:-us-east-1}
+        # awslogs-group: GeoGPT-RAG-Logs
+        # awslogs-stream: rag-api-${HOSTNAME:-ec2}
+        # awslogs-create-group: "true"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 45s
-      timeout: 15s
+      interval: 60s
+      timeout: 45s
       retries: 5
-      start_period: 180s       # Extended for model preloading
+      start_period: 300s       # Extended startup time for model preloading
+    # Network configuration for EC2
+    networks:
+      - geogpt-rag-network
 
+# Named volumes for model persistence across container restarts
 volumes:
   model_cache:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/geogpt-rag/model_cache  # EC2 mounted volume
   huggingface_cache:
     driver: local
+    driver_opts:
+      type: none  
+      o: bind
+      device: /opt/geogpt-rag/huggingface_cache  # EC2 mounted volume
 
+# Custom network for better container isolation
 networks:
-  default:
-    name: geogpt-rag-network
+  geogpt-rag-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

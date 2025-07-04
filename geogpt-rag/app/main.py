@@ -19,7 +19,16 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 from .kb import KBDocQA
-from .config import UPLOAD_DIR, MILVUS_COLLECTION
+from .models.sagemaker_llm import SageMakerLLMClient
+from .config import (
+    UPLOAD_DIR, 
+    MILVUS_COLLECTION, 
+    LLM_PROVIDER, 
+    LLM_URL, 
+    LLM_KEY, 
+    SAGEMAKER_ENDPOINT_NAME, 
+    AWS_REGION
+)
 
 
 # Request/Response Models
@@ -299,6 +308,7 @@ async def get_stats():
         return {
             "collection_name": MILVUS_COLLECTION,
             "upload_directory": str(UPLOAD_DIR),
+            "llm_provider": LLM_PROVIDER,
             "status": "operational"
         }
         
@@ -307,6 +317,93 @@ async def get_stats():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting stats: {str(e)}"
+        )
+
+
+@app.get("/llm/test")
+async def test_llm_connection():
+    """Test LLM connection and configuration."""
+    try:
+        if LLM_PROVIDER.lower() == "sagemaker":
+            # Test SageMaker endpoint
+            if not SAGEMAKER_ENDPOINT_NAME:
+                return {
+                    "status": "error",
+                    "provider": "sagemaker",
+                    "error": "SAGEMAKER_ENDPOINT_NAME not configured"
+                }
+            
+            try:
+                sagemaker_client = SageMakerLLMClient(
+                    endpoint_name=SAGEMAKER_ENDPOINT_NAME,
+                    region_name=AWS_REGION
+                )
+                test_result = sagemaker_client.test_connection()
+                return {
+                    "provider": "sagemaker",
+                    **test_result
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "provider": "sagemaker",
+                    "endpoint_name": SAGEMAKER_ENDPOINT_NAME,
+                    "region": AWS_REGION,
+                    "error": str(e)
+                }
+        
+        else:
+            # Test OpenAI-compatible endpoint
+            if not LLM_URL or not LLM_KEY:
+                return {
+                    "status": "error",
+                    "provider": "openai-compatible",
+                    "error": "LLM_URL or LLM_KEY not configured"
+                }
+            
+            try:
+                import openai
+                client = openai.Client(base_url=LLM_URL, api_key=LLM_KEY)
+                models = client.models.list()
+                
+                if not models.data:
+                    return {
+                        "status": "error",
+                        "provider": "openai-compatible",
+                        "url": LLM_URL,
+                        "error": "No models available"
+                    }
+                
+                # Test with a simple prompt
+                model = models.data[0].id
+                test_response = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": "Hello, this is a test."}],
+                    max_tokens=50,
+                    temperature=0.1
+                )
+                
+                return {
+                    "status": "success",
+                    "provider": "openai-compatible",
+                    "url": LLM_URL,
+                    "available_models": [model.id for model in models.data[:5]],  # Show first 5 models
+                    "test_response": test_response.choices[0].message.content
+                }
+                
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "provider": "openai-compatible",
+                    "url": LLM_URL,
+                    "error": str(e)
+                }
+        
+    except Exception as e:
+        logging.error(f"Error testing LLM connection: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error testing LLM connection: {str(e)}"
         )
 
 

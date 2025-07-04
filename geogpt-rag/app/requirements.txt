@@ -15,6 +15,7 @@ langchain-community==0.3.25
 requests
 nltk
 openai
+boto3  # For AWS SageMaker integration
 python-multipart  # For file uploads
 aiofiles  # For async file operations
 uvloop  # For better async performance

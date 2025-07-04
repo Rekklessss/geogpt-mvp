@@ -55,10 +55,19 @@ EXPAND_RANGE: int = int(os.getenv("EXPAND_RANGE", 1024))
 EXPAND_TIME_OUT: int = int(os.getenv("EXPAND_TIME_OUT", 30))
 
 # ─────────────────────────────────────────────────────────────────────────────
-# External LLM
+# External LLM Configuration
 # ─────────────────────────────────────────────────────────────────────────────
+LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai-compatible")  # openai-compatible | sagemaker
+
+# OpenAI-Compatible Configuration
 LLM_URL: str = os.getenv("LLM_URL", "")
 LLM_KEY: str = os.getenv("LLM_KEY", "")
+
+# SageMaker Configuration
+SAGEMAKER_ENDPOINT_NAME: str = os.getenv("SAGEMAKER_ENDPOINT_NAME", "")
+AWS_REGION: str = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
+AWS_ACCESS_KEY_ID: str | None = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DeepSeek-style RAG prompt
