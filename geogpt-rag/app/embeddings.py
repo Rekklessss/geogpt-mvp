@@ -1,6 +1,6 @@
 import torch, os
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, Field
+from typing import List, Any
 from langchain.embeddings.base import Embeddings
 
 from .models.embedding import EmbeddingModel
@@ -12,6 +12,9 @@ class GeoEmbeddings(BaseModel, Embeddings):
     
     Preserves the original batching logic while using environment configuration.
     """
+    
+    # Declare the embedding_model field for Pydantic validation
+    embedding_model: Any = Field(default=None, exclude=True)
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

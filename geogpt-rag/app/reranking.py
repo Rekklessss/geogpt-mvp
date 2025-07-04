@@ -1,6 +1,6 @@
 import os
-from pydantic import BaseModel
-from typing import List, Tuple
+from pydantic import BaseModel, Field
+from typing import List, Tuple, Any
 
 from .models.reranker import RerankerModel
 from .config import RERANK_MODEL, RERANKING_BATCH_SIZE
@@ -11,6 +11,9 @@ class GeoReRanking(BaseModel):
     
     Preserves the original batching logic while using environment configuration.
     """
+    
+    # Declare the reranker_model field for Pydantic validation
+    reranker_model: Any = Field(default=None, exclude=True)
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
