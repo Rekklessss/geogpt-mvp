@@ -6,7 +6,49 @@ Provides REST endpoints for document ingestion, querying, and knowledge base man
 
 from __future__ import annotations
 
+# Apply compatibility fixes before any other imports
 import os
+import warnings
+
+# Suppress TensorFlow and transformers warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
+
+# Set compatibility environment variables
+compatibility_env_vars = {
+    'TOKENIZERS_PARALLELISM': 'false',
+    'TRANSFORMERS_OFFLINE': '0',
+    'HF_HUB_DISABLE_TELEMETRY': '1',
+    'CUDA_LAUNCH_BLOCKING': '0',
+}
+
+for key, value in compatibility_env_vars.items():
+    if key not in os.environ:
+        os.environ[key] = value
+
+# Apply MistralDualModel compatibility patch
+def apply_mistral_dual_model_patch():
+    """Apply compatibility patch for MistralDualModel _update_causal_mask issue."""
+    try:
+        from transformers import PreTrainedModel
+        
+        def _update_causal_mask_patch(self, attention_mask=None, input_ids=None, **kwargs):
+            """Compatibility patch for _update_causal_mask method."""
+            # For embedding models, we don't need causal masking
+            return None
+        
+        # Apply the patch globally
+        if not hasattr(PreTrainedModel, '_update_causal_mask'):
+            PreTrainedModel._update_causal_mask = _update_causal_mask_patch
+            print("✅ Applied MistralDualModel compatibility patch")
+            
+    except Exception as e:
+        print(f"⚠️  Could not apply MistralDualModel patch: {e}")
+
+# Apply the patch immediately
+apply_mistral_dual_model_patch()
+
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional

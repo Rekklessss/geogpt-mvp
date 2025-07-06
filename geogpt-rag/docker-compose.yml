@@ -16,9 +16,9 @@ services:
       - RERANKING_DEVICE=cuda
       - TEXT_SPLITTER_DEVICE=cuda
       - LOG_LEVEL=INFO
-      # 🎯 Enhanced batch sizes for A10G GPU (24GB VRAM)
-      - EMBEDDING_BATCH_SIZE=64
-      - RERANKING_BATCH_SIZE=64
+      # 🎯 Enhanced batch sizes for A10G GPU (24GB VRAM) - Reduced to fix OOM issues
+      - EMBEDDING_BATCH_SIZE=32
+      - RERANKING_BATCH_SIZE=32
       - VEC_RECALL_NUM=128
       # 🔧 Performance optimizations
       - EMBEDDING_FP16=true
@@ -40,6 +40,13 @@ services:
       # 🚨 EC2 specific settings
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_REGION=us-east-1
+      # 🔧 Compatibility fixes for transformers/TensorFlow warnings
+      - TF_CPP_MIN_LOG_LEVEL=2
+      - TRANSFORMERS_OFFLINE=0
+      - HF_HUB_DISABLE_TELEMETRY=1
+      # 🛠️ Additional memory optimizations
+      - CUDA_CACHE_DISABLE=1
+      - TORCH_CUDA_ARCH_LIST=8.6
     volumes:
       # Host directory mounts disabled to fix permission issues
       # Let container handle its own directory creation with proper ownership
