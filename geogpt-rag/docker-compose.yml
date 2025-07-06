@@ -41,12 +41,9 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_REGION=us-east-1
     volumes:
-      # Mount host directories for persistence on EC2
-      - ./data:/app/data:rw                    # Document uploads and processing
-      - ./logs:/app/logs:rw                    # Application logs  
-      - ./split_chunks:/app/split_chunks:rw    # Text chunks storage
-      - model_cache:/app/.cache:rw             # Model cache persistence
-      - huggingface_cache:/app/.cache/huggingface:rw  # HuggingFace models
+      # Host directory mounts disabled to fix permission issues
+      # Let container handle its own directory creation with proper ownership
+      - model_cache:/app/.cache:rw             # Model cache persistence (Docker managed)
     deploy:
       resources:
         # 🎯 Optimized for g5.xlarge (16 GB RAM + 24 GB VRAM)

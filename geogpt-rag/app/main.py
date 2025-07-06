@@ -213,10 +213,40 @@ async def process_document_background(file_path: str):
     """Background task to process uploaded document."""
     try:
         if kb_instance:
+            logging.info(f"Starting background processing of document: {file_path}")
+            
+            # Check if file exists and is readable
+            if not os.path.exists(file_path):
+                logging.error(f"File not found for processing: {file_path}")
+                return
+            
+            # Check file permissions
+            if not os.access(file_path, os.R_OK):
+                logging.error(f"File not readable for processing: {file_path}")
+                return
+            
+            file_size = os.path.getsize(file_path)
+            logging.info(f"Processing file: {file_path} (size: {file_size} bytes)")
+            
+            # Process the file
             kb_instance.add_file(file_path)
             logging.info(f"Successfully processed document: {file_path}")
+            
+            # Clean up the uploaded file after processing
+            try:
+                os.remove(file_path)
+                logging.info(f"Cleaned up uploaded file: {file_path}")
+            except Exception as cleanup_error:
+                logging.warning(f"Could not clean up file {file_path}: {cleanup_error}")
+                
+        else:
+            logging.error("KB instance not available for document processing")
+            
     except Exception as e:
         logging.error(f"Error processing document {file_path}: {e}")
+        logging.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
 
 
 @app.post("/query", response_model=QueryResponse)
