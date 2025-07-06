@@ -1,9 +1,13 @@
 #!/bin/bash
 
 # =====================================================================================
-# GeoGPT-RAG EC2 Deployment Script for g5.xlarge
-# Instance: geogpt-pipeline (i-0a3b0271a4e3ea64f)
-# Public IP: 44.210.120.211
+# GeoGPT-RAG EC2 Fresh Deployment Script for g5.xlarge
+# 
+# Use this script for:
+# - Fresh EC2 instance setup (new instance)
+# - Installing Docker, NVIDIA toolkit from scratch
+# 
+# For existing deployments, use cleanup-deployment.sh instead
 # =====================================================================================
 
 set -e  # Exit on any error
@@ -157,16 +161,17 @@ install_nvidia_container_toolkit() {
 setup_directories() {
     log "📁 Setting up application directories..."
     
-    # Create base directory
+    # Create base directory structure
     sudo mkdir -p /opt/geogpt-rag/{model_cache,huggingface_cache,data,logs,split_chunks}
     
-    # Set permissions
+    # Set basic permissions for the ubuntu user
     sudo chown -R $USER:docker /opt/geogpt-rag
     chmod -R 755 /opt/geogpt-rag
     
     # Create symlinks for easy access
     ln -sf /opt/geogpt-rag ~/geogpt-rag-data
     
+    # Note: Container-specific permissions (data/uploads) are set in Dockerfile
     log "✅ Application directories created"
 }
 
@@ -361,6 +366,9 @@ main() {
     log "4. Monitor with: docker compose logs -f"
     log ""
     log "🌐 Access your API at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8000"
+    log ""
+    warn "📝 For future updates/redeployments, use: ./cleanup-deployment.sh"
+    warn "   This script is only for fresh EC2 instance setup!"
 }
 
 # Run main function
