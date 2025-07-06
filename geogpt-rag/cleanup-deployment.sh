@@ -159,10 +159,9 @@ if [ "$REDEPLOY" = true ]; then
     log "🏗️  Building with space optimization..."
     docker compose build --no-cache --pull
     
-    # Ensure proper directory permissions before starting
-    log "🔧 Setting up directories with proper permissions..."
+    # Ensure proper directory structure exists (permissions set in Dockerfile)
+    log "🔧 Ensuring directory structure exists..."
     mkdir -p data/uploads split_chunks logs
-    chmod -R 777 data/uploads split_chunks logs
     
     # Start the application
     log "▶️  Starting application..."

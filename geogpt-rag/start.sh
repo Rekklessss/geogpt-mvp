@@ -141,17 +141,12 @@ setup_environment() {
 setup_directories() {
     log "📁 Verifying data directories..."
     
-    # Create directories if they don't exist
+    # Create directories if they don't exist (permissions already set in Dockerfile)
     mkdir -p data/uploads split_chunks logs .cache/transformers .cache/huggingface .cache/torch
     
-    # Fix permissions for the uploads directory specifically
-    if [ -d "data/uploads" ]; then
-        chmod 777 data/uploads
-        log "✅ Fixed permissions for data/uploads"
-    fi
-    
+    # Note: Permissions are set in Dockerfile - don't try to chmod as nobody user
     ls -la data/ split_chunks/ logs/ .cache/ || log "⚠️  Some directories not found but will be created by application"
-    log "✅ Directories created"
+    log "✅ Directories verified"
 }
 
 # Download NLTK data if needed
