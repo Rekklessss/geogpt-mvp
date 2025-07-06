@@ -401,10 +401,8 @@ class TestStatisticsEndpoint:
     @patch('app.main.kb_instance')
     def test_get_stats_error(self, mock_kb):
         """Test statistics when an error occurs."""
-        # Mock the vector store to raise an exception when accessing num_entities
-        mock_collection = Mock()
-        mock_collection.num_entities = property(lambda: (_ for _ in ()).throw(Exception("Stats error")))
-        mock_kb.vector_store.col = mock_collection
+        # Mock the vector store to return None to trigger the except block
+        mock_kb.vector_store = None
         
         response = client.get("/stats")
         # The endpoint should still return 200 with default values when errors occur

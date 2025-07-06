@@ -192,6 +192,21 @@ if [ "$REDEPLOY" = true ]; then
     # Check if uploads directory is accessible
     if docker compose exec geogpt-rag ls -la /app/data/uploads >/dev/null 2>&1; then
         log "✅ Uploads directory accessible inside container"
+        
+        # Check the actual permissions
+        UPLOAD_PERMS=$(docker compose exec geogpt-rag ls -ld /app/data/uploads | awk '{print $1, $3, $4}')
+        log "📋 Upload directory permissions: $UPLOAD_PERMS"
+        
+        # Test if nobody user can write to uploads directory
+        if docker compose exec geogpt-rag touch /app/data/uploads/test_write_permission 2>/dev/null; then
+            docker compose exec geogpt-rag rm -f /app/data/uploads/test_write_permission
+            log "✅ Upload directory is writable by nobody user"
+        else
+            warn "⚠️  Upload directory may not be writable by nobody user"
+            log "🔧 Attempting to fix permissions..."
+            docker compose exec -u root geogpt-rag chown -R nobody:nogroup /app/data/uploads
+            docker compose exec -u root geogpt-rag chmod -R 777 /app/data/uploads
+        fi
     else
         warn "⚠️  Uploads directory may have permission issues"
     fi
