@@ -140,7 +140,17 @@ setup_environment() {
 # Ensure required directories exist
 setup_directories() {
     log "📁 Verifying data directories..."
-ls -la data/ split_chunks/ logs/ .cache/ || log "⚠️  Some directories not found but will be created by application"
+    
+    # Create directories if they don't exist
+    mkdir -p data/uploads split_chunks logs .cache/transformers .cache/huggingface .cache/torch
+    
+    # Fix permissions for the uploads directory specifically
+    if [ -d "data/uploads" ]; then
+        chmod 777 data/uploads
+        log "✅ Fixed permissions for data/uploads"
+    fi
+    
+    ls -la data/ split_chunks/ logs/ .cache/ || log "⚠️  Some directories not found but will be created by application"
     log "✅ Directories created"
 }
 

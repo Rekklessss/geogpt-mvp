@@ -56,5 +56,19 @@ class GeoReRanking(BaseModel):
             scores.extend(batch_scores)
         return scores
 
+    def rerank(self, query: str, documents: List[str]) -> List[float]:
+        """Rerank documents for a given query.
+        
+        Args:
+            query: The query string
+            documents: List of document strings to rerank
+            
+        Returns:
+            List of scores for each document
+        """
+        # Create query-document pairs
+        qp_pairs = [[query, doc] for doc in documents]
+        return self.compute_scores(qp_pairs)
+
     class Config:
         arbitrary_types_allowed = True  # Allow RerankerModel instance

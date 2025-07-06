@@ -74,9 +74,12 @@ RUN mkdir -p data/uploads split_chunks logs .cache/transformers .cache/huggingfa
 RUN chmod +x start.sh
 
 # Create nobody user directories and set permissions
+# First ensure data/uploads exists and has correct ownership
 RUN chown -R nobody:nogroup /app \
     && chmod -R 755 /app \
     && chmod -R 777 data split_chunks logs .cache \
+    && mkdir -p data/uploads \
+    && chown -R nobody:nogroup data/uploads \
     && chmod 777 data/uploads
 
 # Switch to nobody user for security

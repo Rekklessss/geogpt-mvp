@@ -78,7 +78,7 @@ class TestCUDACompatibility:
         except ImportError:
             pytest.skip("Transformers not available")
 
-    @patch('app.embeddings.torch.cuda.is_available')
+    @patch('torch.cuda.is_available')
     def test_embeddings_gpu_compatibility(self, mock_cuda_available):
         """Test embeddings module GPU compatibility."""
         mock_cuda_available.return_value = True
@@ -92,11 +92,16 @@ class TestCUDACompatibility:
                 print("✅ Embeddings configured to use CUDA")
             else:
                 print(f"📋 Embeddings configured to use: {EMBEDDING_DEVICE}")
+            
+            # Test that we can create an embeddings instance
+            embedder = GeoEmbeddings()
+            assert embedder is not None
+            print("✅ Embeddings instance created successfully")
                 
         except ImportError:
             pytest.skip("App modules not available in test environment")
 
-    @patch('app.reranking.torch.cuda.is_available')
+    @patch('torch.cuda.is_available')
     def test_reranking_gpu_compatibility(self, mock_cuda_available):
         """Test reranking module GPU compatibility."""
         mock_cuda_available.return_value = True
@@ -110,6 +115,11 @@ class TestCUDACompatibility:
                 print("✅ Reranking configured to use CUDA")
             else:
                 print(f"📋 Reranking configured to use: {RERANKING_DEVICE}")
+            
+            # Test that we can create a reranker instance
+            reranker = GeoReRanking()
+            assert reranker is not None
+            print("✅ Reranker instance created successfully")
                 
         except ImportError:
             pytest.skip("App modules not available in test environment")

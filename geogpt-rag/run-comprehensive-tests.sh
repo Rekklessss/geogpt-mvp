@@ -486,7 +486,7 @@ try:
         'Urban planning uses GIS for city development.'
     ]
     
-    # Get reranking scores
+    # Get reranking scores using the rerank method
     scores = reranker.rerank(query, documents)
     print(f'✅ Reranking completed for {len(documents)} documents')
     

@@ -159,6 +159,11 @@ if [ "$REDEPLOY" = true ]; then
     log "🏗️  Building with space optimization..."
     docker compose build --no-cache --pull
     
+    # Ensure proper directory permissions before starting
+    log "🔧 Setting up directories with proper permissions..."
+    mkdir -p data/uploads split_chunks logs
+    chmod -R 777 data/uploads split_chunks logs
+    
     # Start the application
     log "▶️  Starting application..."
     docker compose up -d
@@ -180,6 +185,23 @@ if [ "$REDEPLOY" = true ]; then
         warn "⚠️  Application health check failed - may still be starting up"
         log "📋 Checking logs:"
         docker compose logs --tail=20
+    fi
+    
+    # Verify key fixes
+    log "🔍 Verifying deployment fixes..."
+    
+    # Check if uploads directory is accessible
+    if docker compose exec geogpt-rag ls -la /app/data/uploads >/dev/null 2>&1; then
+        log "✅ Uploads directory accessible inside container"
+    else
+        warn "⚠️  Uploads directory may have permission issues"
+    fi
+    
+    # Quick test of reranking functionality
+    if docker compose exec geogpt-rag python -c "from app.reranking import GeoReRanking; r = GeoReRanking(); print('✅ Reranking module working')" 2>/dev/null; then
+        log "✅ Reranking module verified"
+    else
+        warn "⚠️  Reranking module may have issues"
     fi
     
     log "🎉 Space-optimized deployment completed!"
