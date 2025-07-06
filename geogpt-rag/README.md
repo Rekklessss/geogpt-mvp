@@ -305,25 +305,45 @@ nvidia-smi
 ## 📁 Project Structure
 
 ```
-geogpt-rag/
-├── app/
-│   ├── main.py              # FastAPI application
-│   ├── config.py            # Configuration management
-│   ├── kb.py                # Knowledge base operations
-│   ├── models/
-│   │   ├── embedding.py     # GeoEmbedding model wrapper
-│   │   └── reranker.py      # GeoReranker model wrapper
-│   ├── utils/
-│   │   └── parsers.py       # Document parsing utilities
-│   └── requirements.txt     # Python dependencies
-├── tests/
-│   ├── test_api.py          # Comprehensive test suite
-│   └── README.md            # Testing documentation
-├── docker-compose.yml       # Production Docker config
-├── Dockerfile               # Container definition
-├── G5-DEPLOYMENT.md         # AWS deployment guide
-├── DEPLOYMENT-CHECKLIST.md  # Pre-deployment validation
-└── ENV_TEMPLATE.md          # Environment configuration guide
+geogpt-mvp
+├─ 📁geogpt-rag
+│  ├─ 📁app
+│  │  ├─ 📁models
+│  │  │  ├─ 📄__init__.py
+│  │  │  ├─ 📄embedding.py
+│  │  │  ├─ 📄reranker.py
+│  │  │  └─ 📄sagemaker_llm.py
+│  │  ├─ 📁utils
+│  │  │  ├─ 📄__init__.py
+│  │  │  └─ 📄parsers.py
+│  │  ├─ 📄__init__.py
+│  │  ├─ 📄config.py
+│  │  ├─ 📄embeddings.py
+│  │  ├─ 📄kb.py
+│  │  ├─ 📄main.py
+│  │  ├─ 📄requirements.txt
+│  │  └─ 📄reranking.py
+│  ├─ 📁tests
+│  │  ├─ 📄README.md
+│  │  ├─ 📄test_api.py
+│  │  ├─ 📄test_cuda_compatibility.py
+│  │  └─ 📄test_sagemaker_integration.py
+│  ├─ 📄.DS_Store
+│  ├─ 📄.env
+│  ├─ 📄.gitignore
+│  ├─ 📄DEPLOYMENT-GUIDE.md
+│  ├─ 📄Dockerfile
+│  ├─ 📄cleanup-deployment.sh
+│  ├─ 📄deploy-ec2.sh
+│  ├─ 📄docker-compose.yml
+│  ├─ 📄ec2-production.env
+│  ├─ 📄pytest.ini
+│  ├─ 📄run-comprehensive-tests.sh
+│  └─ 📄start.sh
+├─ 📄.DS_Store
+├─ 📄RAG-ERRORS.txt
+├─ 📄README.md
+└─ 📄geogpt-research-project-geogpt-rag.txt
 ```
 
 ## 🔒 Security
